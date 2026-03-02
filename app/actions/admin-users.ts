@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { revalidatePath } from "next/cache"
 
 export async function inviteAdminAction(formData: FormData) {
@@ -13,14 +14,15 @@ export async function inviteAdminAction(formData: FormData) {
   const { data: exists } = await supabase.from("profile").select("id").eq("email", email).maybeSingle()
   if (exists) return { error: "Cet email existe deja." }
 
+  const adminClient = createAdminClient()
   const redirectTo = `${process.env.NEXT_PUBLIC_BASE_URL}/admin-setup`
-  const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
+  const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email, {
     redirectTo,
     data: { first_name: firstName, last_name: lastName },
   })
   if (error || !data.user) return { error: "Invitation impossible." }
 
-  const { error: profileError } = await supabase.from("profile").insert({
+  const { error: profileError } = await adminClient.from("profile").insert({
     user_id: data.user.id,
     first_name: firstName,
     last_name: lastName,
@@ -39,7 +41,8 @@ export async function toggleAdminActiveAction(userId: string, isActive: boolean)
   const supabase = await createClient()
   await supabase.from("profile").update({ is_active: isActive }).eq("user_id", userId)
   if (!isActive) {
-    await supabase.auth.admin.signOut(userId)
+    const adminClient = createAdminClient()
+    await adminClient.auth.admin.signOut(userId)
   }
   revalidatePath("/admin")
 }
@@ -58,8 +61,9 @@ export async function resendAdminInviteAction(userId: string) {
     return { error: "Attendez au moins 1 minute avant de renvoyer l'invitation." }
   }
 
+  const adminClient = createAdminClient()
   const redirectTo = `${process.env.NEXT_PUBLIC_BASE_URL}/admin-setup`
-  const { error } = await supabase.auth.admin.inviteUserByEmail(adminProfile.email, {
+  const { error } = await adminClient.auth.admin.inviteUserByEmail(adminProfile.email, {
     redirectTo,
     data: { first_name: adminProfile.first_name, last_name: adminProfile.last_name },
   })
