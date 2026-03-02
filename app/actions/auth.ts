@@ -69,16 +69,6 @@ export async function signUpAction(formData: FormData) {
     encodedRedirect("error", "/sign-up", "Type de compte invalide.")
   }
 
-  const { data: existing } = await supabase
-    .from("profile")
-    .select("id")
-    .eq("email", email)
-    .maybeSingle()
-
-  if (existing) {
-    encodedRedirect("error", "/sign-up", "Cette adresse email est deja utilisee.")
-  }
-
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -100,12 +90,8 @@ export async function signUpAction(formData: FormData) {
   // Use service-role client to bypass RLS: the user's session isn't active yet
   // while email confirmation is pending, so auth.uid() returns NULL and the
   // profile_insert_self RLS policy would block a regular client insert.
-  const { createClient: createServiceClient } = await import("@supabase/supabase-js")
-  const adminClient = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } }
-  )
+  const { createAdminClient } = await import("@/lib/supabase/admin")
+  const adminClient = createAdminClient()
 
   const { error: profileError } = await adminClient.from("profile").insert({
     user_id: createdUser.id,
@@ -240,56 +226,7 @@ export async function changePasswordAction(formData: FormData) {
   encodedRedirect("success", "/profile", "Mot de passe mis a jour.")
 }
 
-export async function markInitialPasswordChangedAction(formData: FormData) {
-  const TAG = "[markInitialPasswordChanged]"
-  const supabase = await createClient()
-  const newPassword = formData.get("newPassword")?.toString() ?? ""
-  const confirmPassword = formData.get("confirmPassword")?.toString() ?? ""
-
-  console.log(TAG, "Called, passwords match:", newPassword === confirmPassword, "length:", newPassword.length)
-
-  if (!newPassword || newPassword !== confirmPassword) {
-    return { error: "Les mots de passe ne correspondent pas." }
-  }
-
-  const {
-    data: { user },
-    error: getUserError,
-  } = await supabase.auth.getUser()
-  console.log(TAG, "getUser:", { userId: user?.id ?? null, error: getUserError?.message ?? null })
-  if (!user) return { error: "Session invalide." }
-
-  const { data: updateData, error } = await supabase.auth.updateUser({ password: newPassword })
-  console.log(TAG, "updateUser:", { userId: updateData?.user?.id ?? null, error: error?.message ?? null })
-  if (error) return { error: "Impossible de mettre a jour le mot de passe." }
-
-  // Use service-role client for the profile update because updateUser above
-  // rotates session tokens, making the original session's auth.uid() return NULL
-  // inside RLS policies -- causing a silent 0-row update.
-  const { createClient: createServiceClient } = await import("@supabase/supabase-js")
-  const adminClient = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } }
-  )
-
-  const { data: profileData, error: profileError } = await adminClient
-    .from("profile")
-    .update({ must_change_password: false })
-    .eq("user_id", user.id)
-    .select("id, must_change_password")
-
-  console.log(TAG, "profile update:", { data: profileData, error: profileError?.message ?? null })
-
-  if (profileError) {
-    return { error: "Mot de passe modifie mais le profil n'a pas ete mis a jour." }
-  }
-
-  console.log(TAG, "Done — success")
-  return { success: true }
-}
-
-export async function firstSetupAction(formData: FormData) {
+export async function firstSetupAction(formData: FormData): Promise<{ error?: string; success?: string }> {
   const supabase = await createClient()
   const firstName = formData.get("firstName")?.toString().trim() ?? ""
   const lastName = formData.get("lastName")?.toString().trim() ?? ""
@@ -298,15 +235,16 @@ export async function firstSetupAction(formData: FormData) {
   const confirmPassword = formData.get("confirmPassword")?.toString() ?? ""
 
   if (!firstName || !lastName) {
-    encodedRedirect("error", "/first-setup", "Le prénom et le nom sont requis.")
+    return { error: "Le prénom et le nom sont requis." }
   }
-
+  if (!email) {
+    return { error: "L'adresse email est requise." }
+  }
   if (!newPassword) {
-    encodedRedirect("error", "/first-setup", "Le mot de passe est requis.")
+    return { error: "Le mot de passe est requis." }
   }
-
   if (newPassword !== confirmPassword) {
-    encodedRedirect("error", "/first-setup", "Les mots de passe ne correspondent pas.")
+    return { error: "Les mots de passe ne correspondent pas." }
   }
 
   const {
@@ -314,45 +252,39 @@ export async function firstSetupAction(formData: FormData) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    encodedRedirect("error", "/first-setup", "Session invalide.")
+    return { error: "Session invalide." }
   }
 
-  const updatePayload: { password: string; email?: string } = { password: newPassword }
-  if (email && email !== user!.email) {
-    updatePayload.email = email
+  if (email.toLowerCase() === user.email?.toLowerCase()) {
+    return { error: "Vous devez utiliser une adresse email différente de l'adresse actuelle." }
   }
 
-  const { error: authError } = await supabase.auth.updateUser(updatePayload)
+  const { error: authError } = await supabase.auth.updateUser({
+    password: newPassword,
+    email,
+  })
   if (authError) {
-    encodedRedirect("error", "/first-setup", "Impossible de mettre à jour les informations.")
+    return { error: "Impossible de mettre à jour les informations." }
   }
 
-  const { createClient: createServiceClient } = await import("@supabase/supabase-js")
-  const adminClient = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } }
-  )
+  const { createAdminClient } = await import("@/lib/supabase/admin")
+  const adminClient = createAdminClient()
 
-  await adminClient
+  const { error: profileError } = await adminClient
     .from("profile")
     .update({
       first_name: firstName,
       last_name: lastName,
-      ...(email && email !== user!.email ? { email } : {}),
+      email,
       must_change_password: false,
     })
-    .eq("user_id", user!.id)
+    .eq("user_id", user.id)
 
-  if (email && email !== user!.email) {
-    encodedRedirect(
-      "success",
-      "/",
-      "Compte configuré. Un email de vérification a été envoyé à votre nouvelle adresse."
-    )
+  if (profileError) {
+    return { error: "Informations mises à jour mais le profil n'a pas pu être sauvegardé." }
   }
 
-  redirect("/")
+  return { success: "Compte configuré. Un email de vérification a été envoyé à votre nouvelle adresse." }
 }
 
 export async function signOutAction() {
@@ -387,7 +319,9 @@ export async function deleteAccountAction() {
     await supabase.from("profile").delete().eq("id", profile.id)
   }
 
-  await supabase.auth.admin.deleteUser(user!.id)
+  const { createAdminClient } = await import("@/lib/supabase/admin")
+  const adminClient = createAdminClient()
+  await adminClient.auth.admin.deleteUser(user!.id)
   await supabase.auth.signOut()
   redirect("/")
 }

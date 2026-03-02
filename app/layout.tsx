@@ -2,10 +2,12 @@ import React from "react"
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { redirect } from "next/navigation"
 import './globals.css'
 import getProfile from "@/hooks/useProfile"
+import { createClient } from "@/lib/supabase/server"
 import { AuthProvider } from "@/components/providers/auth-provider"
-import { ForcePasswordChangeOverlay } from "@/components/auth/force-password-change"
+import { FirstSetupForm } from "@/components/auth/first-setup-form"
 import { ensureSuperAdminBootstrapped } from "@/lib/supabase/bootstrap"
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -42,12 +44,19 @@ export default async function RootLayout({
   await ensureSuperAdminBootstrapped()
   const profile = await getProfile()
 
+  if (profile && !profile.is_active) {
+    const supabase = await createClient()
+    await supabase.auth.signOut()
+    redirect("/sign-in")
+  }
+
   return (
     <html lang="en">
       <body className={`font-sans antialiased`}>
         <AuthProvider initialProfile={profile}>
-          {children}
-          <ForcePasswordChangeOverlay enabled={Boolean(profile?.must_change_password)} />
+          {profile?.must_change_password
+            ? <FirstSetupForm profile={profile} />
+            : children}
         </AuthProvider>
         <Analytics />
       </body>
