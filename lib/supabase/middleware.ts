@@ -45,12 +45,13 @@ export async function updateSession(request: NextRequest) {
   const isMyRestaurantPath = path.startsWith("/my-restaurant")
   const isProfilePath = path.startsWith("/profile")
   const isCreateRestaurantPath = path.startsWith("/create-restaurant")
+  const isFirstSetupPath = path.startsWith("/first-setup")
 
   if (isAuthPath && user) {
     return NextResponse.redirect(new URL("/", request.url))
   }
 
-  if (!user && (isAdminPath || isMyRestaurantPath || isProfilePath || isCreateRestaurantPath)) {
+  if (!user && (isAdminPath || isMyRestaurantPath || isProfilePath || isCreateRestaurantPath || isFirstSetupPath)) {
     return NextResponse.redirect(new URL("/sign-in", request.url))
   }
 
@@ -60,13 +61,17 @@ export async function updateSession(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from("profile")
-    .select("role,is_active")
+    .select("role,is_active,must_change_password")
     .eq("user_id", user.id)
     .single()
 
   if (!profile?.is_active) {
     await supabase.auth.signOut()
     return NextResponse.redirect(new URL("/sign-in", request.url))
+  }
+
+  if (profile.must_change_password && !isFirstSetupPath && path !== "/auth/callback") {
+    return NextResponse.redirect(new URL("/first-setup", request.url))
   }
 
   if (isAdminPath && !ADMIN_ROLES.has(profile.role)) {
