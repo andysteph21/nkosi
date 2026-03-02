@@ -1,7 +1,18 @@
 import { fuzzyMatchAny } from "@/lib/fuzzy-search"
+import { createBrowserClient } from "@supabase/ssr"
 import { createClient as createSupabaseRawClient } from "@supabase/supabase-js"
 
 function getSupabase() {
+  // In the browser, use the SSR browser client so the cookie-based auth session
+  // (set by @supabase/ssr) is included in requests. RLS then allows the
+  // authenticated user to see their own non-visible restaurants.
+  // In server context, fall back to the raw client for public (visible) data.
+  if (typeof window !== "undefined") {
+    return createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+  }
   return createSupabaseRawClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -14,20 +25,30 @@ export interface DayHours {
   closed?: boolean
 }
 
+export interface Category {
+  id: number
+  name: string
+  sortOrder: number
+}
+
 export interface Dish {
   id: number
   name: string
   price: number
   currency: string
   image: string
+  video: string   // optional short promo video (≤10 s), empty string when absent
   available: boolean
+  categoryId: number | null
+  sortOrder: number
 }
 
 export interface Restaurant {
   id: number
   name: string
   cuisines: string[]
-  image: string
+  image: string   // cover photo (16:9)
+  logo: string    // logo (1:1)
   city: string
   neighborhood: string
   position: string
@@ -56,13 +77,13 @@ export async function getRestaurants(): Promise<Restaurant[]> {
   const { data: restaurants, error } = await supabase
     .from("restaurant")
     .select(
-      "id,name,description,city,neighborhood,address,cover,is_restricted,is_visible,restaurant_schedule(day_of_week,is_closed,open_time,close_time),restaurant_cuisine(is_main,cuisine(name))"
+      "id,name,description,city,neighborhood,address,cover,logo,is_restricted,is_visible,restaurant_schedule(day_of_week,is_closed,open_time,close_time),restaurant_cuisine(is_main,cuisine(name))"
     )
     .order("id")
 
   if (error) throw error
 
-  const { data: plates } = await supabase.from("plate").select("id,restaurant_id,name,price,image,is_visible")
+  const { data: plates } = await supabase.from("plate").select("id,restaurant_id,name,price,image,video,is_visible,category_id,sort_order")
 
   return (restaurants ?? []).map((restaurant: any) => {
     const cuisineRows = restaurant.restaurant_cuisine ?? []
@@ -88,7 +109,10 @@ export async function getRestaurants(): Promise<Restaurant[]> {
         price: p.price,
         currency: "F CFA",
         image: p.image?.path ?? "/placeholder.svg",
+        video: p.video?.path ?? "",
         available: p.is_visible,
+        categoryId: p.category_id ?? null,
+        sortOrder: p.sort_order ?? 0,
       }))
 
     return {
@@ -96,6 +120,7 @@ export async function getRestaurants(): Promise<Restaurant[]> {
       name: restaurant.name,
       cuisines,
       image: restaurant.cover?.path ?? "/placeholder.svg",
+      logo: restaurant.logo?.path ?? "",
       city: restaurant.city,
       neighborhood: restaurant.neighborhood,
       position: restaurant.address,
@@ -247,6 +272,7 @@ export async function updateRestaurantData(
   if (updates.neighborhood !== undefined) payload.neighborhood = updates.neighborhood
   if (updates.position !== undefined) payload.address = updates.position
   if (updates.image !== undefined) payload.cover = { path: updates.image }
+  if (updates.logo !== undefined) payload.logo = { path: updates.logo }
   const { error } = await supabase.from("restaurant").update(payload).eq("id", id)
   if (error) throw error
 
@@ -289,14 +315,20 @@ export async function updateDish(
   if (updates.price !== undefined) payload.price = updates.price
   if (updates.available !== undefined) payload.is_visible = updates.available
   if (updates.image !== undefined) payload.image = { path: updates.image }
+  if (updates.video !== undefined) payload.video = updates.video ? { path: updates.video } : null
+  if (updates.categoryId !== undefined) payload.category_id = updates.categoryId
+  if (updates.sortOrder !== undefined) payload.sort_order = updates.sortOrder
   const { data, error } = await supabase
     .from("plate")
     .update(payload)
     .eq("restaurant_id", restaurantId)
     .eq("id", dishId)
-    .select("id,name,price,image,is_visible")
+    .select("id,name,price,image,video,is_visible,category_id,sort_order")
     .maybeSingle()
-  if (error) throw error
+  if (error) {
+    if (error.code === '23505') throw new Error('Un plat avec ce nom existe déjà dans ce restaurant.')
+    throw error
+  }
   if (!data) return null
   return {
     id: data.id,
@@ -304,7 +336,10 @@ export async function updateDish(
     price: data.price,
     currency: "F CFA",
     image: data.image?.path ?? "/placeholder.svg",
+    video: data.video?.path ?? "",
     available: data.is_visible,
+    categoryId: data.category_id ?? null,
+    sortOrder: data.sort_order ?? 0,
   }
 }
 
@@ -316,38 +351,34 @@ export async function addDish(
   dishData: Omit<Dish, 'id'>
 ): Promise<Dish | null> {
   const supabase = getSupabase()
-  const { data: uncategorized } = await supabase
-    .from("category")
-    .upsert(
-      {
-        restaurant_id: restaurantId,
-        name: "Non categorise",
-        sort_order: 999,
-      },
-      { onConflict: "name,restaurant_id" }
-    )
-    .select("id")
-    .single()
   const { data, error } = await supabase
     .from("plate")
     .insert({
       restaurant_id: restaurantId,
-      category_id: uncategorized?.id ?? null,
+      category_id: dishData.categoryId ?? null,
       name: dishData.name,
       price: dishData.price,
       image: { path: dishData.image },
+      ...(dishData.video ? { video: { path: dishData.video } } : {}),
       is_visible: dishData.available,
+      sort_order: dishData.sortOrder ?? 0,
     })
-    .select("id,name,price,image,is_visible")
+    .select("id,name,price,image,video,is_visible,category_id,sort_order")
     .single()
-  if (error) throw error
+  if (error) {
+    if (error.code === '23505') throw new Error('Un plat avec ce nom existe déjà dans ce restaurant.')
+    throw error
+  }
   return {
     id: data.id,
     name: data.name,
     price: data.price,
     currency: "F CFA",
     image: data.image?.path ?? "/placeholder.svg",
+    video: data.video?.path ?? "",
     available: data.is_visible,
+    categoryId: data.category_id ?? null,
+    sortOrder: data.sort_order ?? 0,
   }
 }
 
@@ -359,6 +390,89 @@ export async function removeDish(restaurantId: number, dishId: number): Promise<
   const { error } = await supabase.from("plate").delete().eq("restaurant_id", restaurantId).eq("id", dishId)
   if (error) throw error
   return true
+}
+
+/**
+ * Get all categories for a restaurant, ordered by sort_order
+ */
+export async function getCategories(restaurantId: number): Promise<Category[]> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from("category")
+    .select("id,name,sort_order")
+    .eq("restaurant_id", restaurantId)
+    .order("sort_order")
+  if (error) throw error
+  return (data ?? []).map((c: any) => ({ id: c.id, name: c.name, sortOrder: c.sort_order }))
+}
+
+/**
+ * Create a new category for a restaurant
+ */
+export async function createCategory(restaurantId: number, name: string): Promise<Category> {
+  const supabase = getSupabase()
+  const { data: existing } = await supabase
+    .from("category")
+    .select("sort_order")
+    .eq("restaurant_id", restaurantId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+  const nextOrder = ((existing?.[0]?.sort_order) ?? -1) + 1
+  const { data, error } = await supabase
+    .from("category")
+    .insert({ restaurant_id: restaurantId, name, sort_order: nextOrder })
+    .select("id,name,sort_order")
+    .single()
+  if (error) {
+    if (error.code === '23505') throw new Error('Une catégorie avec ce nom existe déjà.')
+    throw error
+  }
+  return { id: data.id, name: data.name, sortOrder: data.sort_order }
+}
+
+/**
+ * Rename a category
+ */
+export async function renameCategory(categoryId: number, name: string): Promise<void> {
+  const supabase = getSupabase()
+  const { error } = await supabase.from("category").update({ name }).eq("id", categoryId)
+  if (error) {
+    if (error.code === '23505') throw new Error('Une catégorie avec ce nom existe déjà.')
+    throw error
+  }
+}
+
+/**
+ * Delete a category (dishes become uncategorized via ON DELETE SET NULL)
+ */
+export async function deleteCategory(categoryId: number): Promise<void> {
+  const supabase = getSupabase()
+  const { error } = await supabase.from("category").delete().eq("id", categoryId)
+  if (error) throw error
+}
+
+/**
+ * Persist new sort_order values for a set of categories
+ */
+export async function reorderCategories(updates: Array<{ id: number; sortOrder: number }>): Promise<void> {
+  const supabase = getSupabase()
+  await Promise.all(
+    updates.map(({ id, sortOrder }) =>
+      supabase.from("category").update({ sort_order: sortOrder }).eq("id", id)
+    )
+  )
+}
+
+/**
+ * Persist new sort_order values for a set of dishes
+ */
+export async function reorderDishes(updates: Array<{ id: number; sortOrder: number }>): Promise<void> {
+  const supabase = getSupabase()
+  await Promise.all(
+    updates.map(({ id, sortOrder }) =>
+      supabase.from("plate").update({ sort_order: sortOrder }).eq("id", id)
+    )
+  )
 }
 
 export async function incrementRestaurantClick(restaurantId: number) {
