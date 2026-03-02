@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { getRestaurantById, updateRestaurantData } from '@/services/restaurant.service'
-import type { Restaurant, DayHours } from '@/services/restaurant.service'
+import type { Restaurant } from '@/services/restaurant.service'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -16,13 +16,32 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { ImageCropModal } from '@/components/ui/image-crop-modal'
+import { ScheduleEditor, dayHoursToEntry, entryToDayHours, isEntryValid } from '@/components/my-restaurant/schedule-editor'
+import type { ScheduleEntry } from '@/components/my-restaurant/schedule-editor'
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
+
+// Checkerboard reveals whether the logo has a transparent background.
+const CHECKER_BG =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect width='8' height='8' fill='%23ccc'/%3E%3Crect x='8' y='8' width='8' height='8' fill='%23ccc'/%3E%3Crect x='8' width='8' height='8' fill='%23fff'/%3E%3Crect y='8' width='8' height='8' fill='%23fff'/%3E%3C/svg%3E\")"
+
+function LogoPreview({ src, isNew }: { src: string; isNew: boolean }) {
+  return (
+    <div className="flex flex-col gap-1 min-w-[96px]">
+      <p className="text-xs text-muted-foreground">{isNew ? 'Nouveau logo' : 'Logo actuel'}</p>
+      <div
+        className="w-24 h-24 rounded-lg border border-input overflow-hidden"
+        style={{ backgroundImage: CHECKER_BG, backgroundSize: '16px 16px' }}
+      >
+        <img src={src} alt="Logo" className="w-full h-full object-contain" />
+      </div>
+    </div>
+  )
+}
 
 interface RestaurantInfoFormProps {
   restaurantId: number
 }
-
-const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 
 export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null)
@@ -41,41 +60,29 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
     neighborhood: '',
     image: '',
     logo: '',
-    hours: [] as DayHours[],
+    schedule: [] as ScheduleEntry[],
   })
 
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
-  const [scheduleErrors, setScheduleErrors] = useState<Record<number, string>>({})
+  const [scheduleError, setScheduleError] = useState<string | null>(null)
+
+  const [cropModal, setCropModal] = useState<{
+    open: boolean
+    src: string
+    type: 'logo' | 'cover'
+  }>({ open: false, src: '', type: 'logo' })
+
   useUnsavedChanges(hasChanges)
 
-  // Validate time format (HH:MM - HH:MM)
-  function validateTimeFormat(time: string): boolean {
-    if (!time.trim()) return false
-    const timeRegex = /^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/
-    return timeRegex.test(time.trim())
-  }
-
-  // Validate all schedules
-  function validateSchedules(): boolean {
-    const errors: Record<number, string> = {}
-    let isValid = true
-
-    formData.hours.forEach((day, index) => {
-      // Skip validation for closed days
-      if (day.closed) return
-
-      if (!day.hours.trim()) {
-        errors[index] = 'Veuillez remplir les horaires'
-        isValid = false
-      } else if (!validateTimeFormat(day.hours)) {
-        errors[index] = 'Format invalide (ex: 09:00 - 22:00)'
-        isValid = false
-      }
-    })
-
-    setScheduleErrors(errors)
-    return isValid
+  function validateSchedule(): boolean {
+    const invalid = formData.schedule.some((entry) => !isEntryValid(entry))
+    if (invalid) {
+      setScheduleError('Veuillez remplir les horaires d\'ouverture et de fermeture pour chaque jour actif.')
+      return false
+    }
+    setScheduleError(null)
+    return true
   }
 
   useEffect(() => {
@@ -95,8 +102,8 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
           city: data.city,
           neighborhood: data.neighborhood,
           image: data.image,
-          logo: '',
-          hours: data.hours,
+          logo: data.logo,
+          schedule: data.hours.map(dayHoursToEntry),
         })
         setHasChanges(false)
       }
@@ -114,48 +121,33 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'cover') => {
     const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        const result = reader.result as string
-        if (type === 'logo') {
-          setLogoPreview(result)
-          setFormData(prev => ({ ...prev, logo: result }))
-        } else {
-          setCoverPreview(result)
-          setFormData(prev => ({ ...prev, image: result }))
-        }
-        handleFormChange()
-      }
-      reader.readAsDataURL(file)
+    if (!file) return
+    // Reset file input so the same file can be re-selected after cancelling crop
+    e.target.value = ''
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setCropModal({ open: true, src: reader.result as string, type })
     }
+    reader.readAsDataURL(file)
   }
 
-  const handleTimeChange = (dayIndex: number, newHours: string) => {
-    const newSchedule = [...formData.hours]
-    newSchedule[dayIndex] = { ...newSchedule[dayIndex], hours: newHours }
-    setFormData(prev => ({ ...prev, hours: newSchedule }))
+  const handleCropConfirm = (croppedDataUrl: string) => {
+    const { type } = cropModal
+    if (type === 'logo') {
+      setLogoPreview(croppedDataUrl)
+      setFormData(prev => ({ ...prev, logo: croppedDataUrl }))
+    } else {
+      setCoverPreview(croppedDataUrl)
+      setFormData(prev => ({ ...prev, image: croppedDataUrl }))
+    }
     handleFormChange()
+    setCropModal({ open: false, src: '', type: 'logo' })
   }
 
-  const handleToggleClosed = (dayIndex: number) => {
-    const newSchedule = [...formData.hours]
-    newSchedule[dayIndex] = { 
-      ...newSchedule[dayIndex], 
-      closed: !newSchedule[dayIndex].closed,
-      hours: !newSchedule[dayIndex].closed ? '' : newSchedule[dayIndex].hours
-    }
-    setFormData(prev => ({ ...prev, hours: newSchedule }))
-    // Clear error when toggling closed
-    if (scheduleErrors[dayIndex]) {
-      setScheduleErrors(prev => {
-        const newErrors = { ...prev }
-        delete newErrors[dayIndex]
-        return newErrors
-      })
-    }
-    handleFormChange()
+  const handleCropCancel = () => {
+    setCropModal({ open: false, src: '', type: 'logo' })
   }
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -163,9 +155,7 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
       setSaving(true)
       setMessage(null)
       
-      // Validate schedules before submit
-      if (!validateSchedules()) {
-        setMessage({ type: 'error', text: 'Veuillez corriger les erreurs dans les horaires' })
+      if (!validateSchedule()) {
         setSaving(false)
         return
       }
@@ -176,12 +166,13 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
         position: formData.position,
         city: formData.city,
         neighborhood: formData.neighborhood,
-        image: formData.image,
-        hours: formData.hours,
+        ...(coverPreview ? { image: formData.image } : {}),
+        ...(logoPreview ? { logo: formData.logo } : {}),
+        hours: formData.schedule.map(entryToDayHours),
       })
       setMessage({ type: 'success', text: 'Les informations ont été mises à jour avec succès' })
       setHasChanges(false)
-      setScheduleErrors({})
+      setScheduleError(null)
     } catch (error) {
       console.error('Error updating restaurant:', error)
       setMessage({ type: 'error', text: 'Erreur lors de la mise à jour' })
@@ -245,29 +236,15 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
                     <label htmlFor="logo-upload" className="cursor-pointer block">
                       <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground">Cliquez pour uploader un logo</p>
-                      <p className="text-xs text-muted-foreground mt-1">PNG, JPG (carré recommandé)</p>
+                      <p className="text-xs text-muted-foreground mt-1">PNG, JPG — recadrage carré (1:1) automatique</p>
                     </label>
                   </div>
                 </div>
-                {(logoPreview || restaurant.image) && (
-                  <div className="flex flex-col gap-2">
-                    {logoPreview && (
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Nouveau logo</p>
-                        <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-input border-green-500">
-                          <img src={logoPreview} alt="Logo preview" className="w-full h-full object-cover" crossOrigin="anonymous" />
-                        </div>
-                      </div>
-                    )}
-                    {restaurant.image && !logoPreview && (
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Logo actuel</p>
-                        <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-input">
-                          <img src={restaurant.image} alt="Current logo" className="w-full h-full object-cover" crossOrigin="anonymous" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                {(logoPreview || restaurant.logo) && (
+                  <LogoPreview
+                    src={logoPreview ?? restaurant.logo}
+                    isNew={!!logoPreview}
+                  />
                 )}
               </div>
             </div>
@@ -286,7 +263,7 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
                 <label htmlFor="cover-upload" className="cursor-pointer block">
                   <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">Cliquez pour uploader une image de couverture</p>
-                  <p className="text-xs text-muted-foreground mt-1">JPG, PNG (16:9 recommandé, min 720p)</p>
+                  <p className="text-xs text-muted-foreground mt-1">JPG, PNG — recadrage 16:9 automatique</p>
                 </label>
               </div>
               {(coverPreview || restaurant.image) && (
@@ -371,56 +348,21 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
 
             {/* Schedule */}
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Horaires d'ouverture *</label>
-              <p className="text-xs text-muted-foreground mb-4 p-3 bg-blue-50 rounded-md">
-                ✓ Cochez la case "Fermé" pour indiquer que le restaurant n'est pas ouvert ce jour-là
+              <label className="block text-sm font-medium text-foreground mb-3">Horaires d'ouverture *</label>
+              <ScheduleEditor
+                value={formData.schedule}
+                onChange={(schedule) => {
+                  setFormData(prev => ({ ...prev, schedule }))
+                  setScheduleError(null)
+                  handleFormChange()
+                }}
+              />
+              {scheduleError && (
+                <p className="text-sm text-destructive mt-2">{scheduleError}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                L'icône <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">🌙 +1j</span> indique que la fermeture est le lendemain.
               </p>
-              <div className="space-y-3">
-                {formData.hours.map((day, index) => (
-                  <div key={index} className="flex gap-4 items-start">
-                    <div className="flex-1 min-w-0">
-                      <label className="text-sm text-foreground block mb-2">{day.day}</label>
-                      <Input
-                        type="text"
-                        value={day.hours}
-                        onChange={(e) => {
-                          handleTimeChange(index, e.target.value)
-                          // Clear error when user starts typing
-                          if (scheduleErrors[index]) {
-                            setScheduleErrors(prev => {
-                              const newErrors = { ...prev }
-                              delete newErrors[index]
-                              return newErrors
-                            })
-                          }
-                        }}
-                        placeholder="Ex: 09:00 - 22:00"
-                        disabled={day.closed ?? false}
-                        className={`w-full disabled:opacity-50 disabled:cursor-not-allowed ${scheduleErrors[index] ? 'border-red-500 focus:ring-red-500' : ''}`}
-                      />
-                      {scheduleErrors[index] && (
-                        <p className="text-sm text-red-500 mt-1">{scheduleErrors[index]}</p>
-                      )}
-                      {day.closed && (
-                        <p className="text-sm text-muted-foreground mt-1">Fermé ce jour</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 pt-8">
-                      <label htmlFor={`closed-${index}`} className="text-xs text-foreground cursor-pointer whitespace-nowrap">
-                        Fermé
-                      </label>
-                      <input
-                        type="checkbox"
-                        id={`closed-${index}`}
-                        checked={day.closed ?? false}
-                        onChange={() => handleToggleClosed(index)}
-                        className="w-4 h-4 rounded border border-input cursor-pointer"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-3">Format: HH:MM - HH:MM (ex: 09:00 - 22:00)</p>
             </div>
 
             {/* Submit and Cancel Buttons */}
@@ -460,6 +402,15 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
           </form>
         </CardContent>
       </Card>
+
+      <ImageCropModal
+        open={cropModal.open}
+        src={cropModal.src}
+        aspect={cropModal.type === 'logo' ? 1 : 16 / 9}
+        title={cropModal.type === 'logo' ? 'Recadrer le logo (1:1)' : 'Recadrer la couverture (16:9)'}
+        onConfirm={handleCropConfirm}
+        onCancel={handleCropCancel}
+      />
 
       {/* Confirmation Dialog */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
