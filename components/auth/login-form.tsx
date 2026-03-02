@@ -3,16 +3,16 @@ import { signInAction } from "@/app/actions/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-export function LoginForm() {
+export function LoginForm({ defaultEmail }: { defaultEmail?: string } = {}) {
   return (
     <form action={signInAction} className="space-y-4">
       <div>
         <label className="text-sm font-medium">Email</label>
-        <Input type="email" name="email" required />
+        <Input type="email" name="email" required autoComplete="email" defaultValue={defaultEmail} />
       </div>
       <div>
         <label className="text-sm font-medium">Mot de passe</label>
-        <Input type="password" name="password" required />
+        <Input type="password" name="password" required autoComplete="current-password" />
       </div>
       <Button type="submit" className="w-full">
         Se connecter

@@ -21,7 +21,7 @@ export default async function ForgotPasswordPage({
           {params.error ? <p className="text-sm text-destructive">{params.error}</p> : null}
           {params.success ? <p className="text-sm text-green-600">{params.success}</p> : null}
           <form action={forgotPasswordAction} className="space-y-4">
-            <Input type="email" name="email" placeholder="Email" required />
+            <Input type="email" name="email" placeholder="Email" required autoComplete="email" />
             <Button type="submit" className="w-full">
               Envoyer le lien
             </Button>

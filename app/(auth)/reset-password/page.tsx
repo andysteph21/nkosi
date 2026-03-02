@@ -20,13 +20,14 @@ export default async function ResetPasswordPage({
           {params.error ? <p className="text-sm text-destructive">{params.error}</p> : null}
           {params.success ? <p className="text-sm text-green-600">{params.success}</p> : null}
           <form action={resetPasswordAction} className="space-y-4">
-            <Input type="password" name="password" placeholder="Nouveau mot de passe" required minLength={8} />
+            <Input type="password" name="password" placeholder="Nouveau mot de passe" required minLength={8} autoComplete="new-password" />
             <Input
               type="password"
               name="confirmPassword"
               placeholder="Confirmer le mot de passe"
               required
               minLength={8}
+              autoComplete="new-password"
             />
             <Button type="submit" className="w-full">
               Mettre a jour
