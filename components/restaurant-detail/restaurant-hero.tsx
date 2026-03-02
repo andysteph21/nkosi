@@ -6,12 +6,15 @@ import { cn } from "@/lib/utils"
 import Link from "next/link"
 import type { Restaurant } from "@/services/restaurant.service"
 import { toggleFavorite } from "@/services/favorite.service"
+import { useAuth } from "@/components/providers/auth-provider"
 
 interface RestaurantHeroProps {
   restaurant: Restaurant
 }
 
 export function RestaurantHero({ restaurant }: RestaurantHeroProps) {
+  const { profile } = useAuth()
+  const isClient = !profile || profile.role === "client"
   const [favorite, setFavorite] = useState(restaurant.isFavorite)
   async function onToggleFavorite() {
     const result = await toggleFavorite(restaurant.id)
@@ -45,26 +48,37 @@ export function RestaurantHero({ restaurant }: RestaurantHeroProps) {
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <button
-            onClick={onToggleFavorite}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-card/90 backdrop-blur-sm transition-all hover:bg-highlight hover:scale-110"
-            aria-label={favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
-          >
-            <Heart
-              className={cn(
-                "h-5 w-5 transition-colors",
-                favorite ? "fill-primary text-primary" : "text-muted-foreground"
-              )}
-            />
-          </button>
+          {isClient && (
+            <button
+              onClick={onToggleFavorite}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-card/90 backdrop-blur-sm transition-all hover:bg-highlight hover:scale-110"
+              aria-label={favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+            >
+              <Heart
+                className={cn(
+                  "h-5 w-5 transition-colors",
+                  favorite ? "fill-primary text-primary" : "text-muted-foreground"
+                )}
+              />
+            </button>
+          )}
         </div>
 
         {/* Restaurant info overlay */}
         <div className="absolute bottom-0 left-0 right-0 p-6">
           <div className="flex items-end gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-card/90 backdrop-blur-sm text-xl font-bold text-primary">
-              {restaurant.name.charAt(0)}
-            </div>
+            {restaurant.logo ? (
+              <img
+                src={restaurant.logo}
+                alt={`Logo ${restaurant.name}`}
+                className="h-16 w-16 shrink-0 rounded-2xl bg-card/90 backdrop-blur-sm object-contain"
+                crossOrigin="anonymous"
+              />
+            ) : (
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-card/90 backdrop-blur-sm text-xl font-bold text-primary">
+                {restaurant.name.charAt(0)}
+              </div>
+            )}
             <div className="min-w-0">
               <h1 className="text-2xl md:text-3xl font-bold text-primary-foreground text-balance">
                 {restaurant.name}
