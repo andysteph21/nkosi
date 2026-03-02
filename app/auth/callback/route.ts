@@ -57,12 +57,21 @@ export async function GET(request: Request) {
         .eq("user_id", user.id)
         .maybeSingle()
       if (profile?.role === "client") {
-        await supabase
+        const restaurantId = Number(autoLike)
+        const { data: existing } = await supabase
           .from("favorite")
-          .upsert({ profile_id: profile.id, restaurant_id: Number(autoLike) })
-        await supabase.rpc("increment_restaurant_likes", {
-          p_restaurant_id: Number(autoLike),
-        })
+          .select("profile_id")
+          .eq("profile_id", profile.id)
+          .eq("restaurant_id", restaurantId)
+          .maybeSingle()
+        if (!existing) {
+          await supabase
+            .from("favorite")
+            .insert({ profile_id: profile.id, restaurant_id: restaurantId })
+          await supabase.rpc("increment_restaurant_likes", {
+            p_restaurant_id: restaurantId,
+          })
+        }
       }
     }
   }
