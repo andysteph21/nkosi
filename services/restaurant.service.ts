@@ -43,10 +43,16 @@ export interface Dish {
   sortOrder: number
 }
 
+export interface CuisineItem {
+  id: number
+  name: string
+  isMain: boolean
+}
+
 export interface Restaurant {
   id: number
   name: string
-  cuisines: string[]
+  cuisines: CuisineItem[]
   image: string   // cover photo (16:9)
   logo: string    // logo (1:1)
   city: string
@@ -58,6 +64,7 @@ export interface Restaurant {
   about: string
   hours: DayHours[]
   dishes: Dish[]
+  categories: Category[]
   restricted: boolean
   visible?: boolean
 }
@@ -77,17 +84,20 @@ export async function getRestaurants(): Promise<Restaurant[]> {
   const { data: restaurants, error } = await supabase
     .from("restaurant")
     .select(
-      "id,name,description,city,neighborhood,address,cover,logo,is_restricted,is_visible,restaurant_schedule(day_of_week,is_closed,open_time,close_time),restaurant_cuisine(is_main,cuisine(name))"
+      "id,name,description,city,neighborhood,address,cover,logo,is_restricted,is_visible,restaurant_schedule(day_of_week,is_closed,open_time,close_time),restaurant_cuisine(is_main,cuisine(id,name))"
     )
     .order("id")
 
   if (error) throw error
 
   const { data: plates } = await supabase.from("plate").select("id,restaurant_id,name,price,image,video,is_visible,category_id,sort_order")
+  const { data: allCategories } = await supabase.from("category").select("id,restaurant_id,name,sort_order").order("sort_order")
 
   return (restaurants ?? []).map((restaurant: any) => {
     const cuisineRows = restaurant.restaurant_cuisine ?? []
-    const cuisines = cuisineRows.map((row: any) => row.cuisine?.name).filter(Boolean)
+    const cuisines: CuisineItem[] = cuisineRows
+      .filter((row: any) => row.cuisine?.name)
+      .map((row: any) => ({ id: row.cuisine.id, name: row.cuisine.name, isMain: row.is_main }))
     const scheduleRows = restaurant.restaurant_schedule ?? []
     const dayMap = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
     const hours: DayHours[] = dayMap.map((dayKey) => {
@@ -115,6 +125,10 @@ export async function getRestaurants(): Promise<Restaurant[]> {
         sortOrder: p.sort_order ?? 0,
       }))
 
+    const categories: Category[] = (allCategories ?? [])
+      .filter((c: any) => c.restaurant_id === restaurant.id)
+      .map((c: any) => ({ id: c.id, name: c.name, sortOrder: c.sort_order }))
+
     return {
       id: restaurant.id,
       name: restaurant.name,
@@ -124,12 +138,13 @@ export async function getRestaurants(): Promise<Restaurant[]> {
       city: restaurant.city,
       neighborhood: restaurant.neighborhood,
       position: restaurant.address,
-      tags: cuisines,
+      tags: cuisines.map((c) => c.name),
       isFavorite: false,
       deliveryTime: "20-40 min",
       about: restaurant.description ?? "",
       hours,
       dishes,
+      categories,
       restricted: restaurant.is_restricted,
       visible: restaurant.is_visible,
     }
@@ -148,7 +163,7 @@ export async function getFilteredRestaurants(filters: RestaurantFilters): Promis
     // Cuisine filter
     if (filters.cuisines && filters.cuisines.length > 0) {
       const matchesCuisine = restaurant.cuisines.some((c) =>
-        filters.cuisines!.some((fc) => fc.toLowerCase() === c.toLowerCase())
+        filters.cuisines!.some((fc) => fc.toLowerCase() === c.name.toLowerCase())
       )
       if (!matchesCuisine) return false
     }
@@ -190,11 +205,95 @@ export async function getRestaurantById(id: number): Promise<Restaurant | null> 
 }
 
 /**
+ * Get a single restaurant using a caller-provided Supabase client.
+ * Used by server components that need the user's session for RLS
+ * (e.g. admins previewing restricted restaurants).
+ */
+export async function getRestaurantByIdWithClient(
+  supabase: ReturnType<typeof getSupabase>,
+  id: number,
+): Promise<Restaurant | null> {
+  const { data: restaurant, error } = await supabase
+    .from("restaurant")
+    .select(
+      "id,name,description,city,neighborhood,address,cover,logo,is_restricted,is_visible,restaurant_schedule(day_of_week,is_closed,open_time,close_time),restaurant_cuisine(is_main,cuisine(id,name))"
+    )
+    .eq("id", id)
+    .maybeSingle()
+
+  if (error || !restaurant) return null
+
+  const { data: plates } = await supabase
+    .from("plate")
+    .select("id,name,price,image,video,is_visible,category_id,sort_order")
+    .eq("restaurant_id", id)
+    .order("sort_order")
+
+  const cuisineRows = restaurant.restaurant_cuisine ?? []
+  const cuisines: CuisineItem[] = (cuisineRows as any[])
+    .filter((row: any) => row.cuisine?.name)
+    .map((row: any) => ({ id: row.cuisine.id ?? 0, name: row.cuisine.name, isMain: row.is_main }))
+  const scheduleRows = restaurant.restaurant_schedule ?? []
+  const dayMap = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+  const hours: DayHours[] = dayMap.map((dayKey) => {
+    const row = (scheduleRows as any[]).find((s: any) => s.day_of_week === dayKey)
+    if (!row || row.is_closed) {
+      return { day: dayLabel(dayKey), hours: "Fermé", closed: true }
+    }
+    return {
+      day: dayLabel(dayKey),
+      hours: `${row.open_time?.slice(0, 5) ?? "00:00"} - ${row.close_time?.slice(0, 5) ?? "00:00"}`,
+    }
+  })
+
+  const dishes = (plates ?? []).map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    currency: "F CFA",
+    image: p.image?.path ?? "/placeholder.svg",
+    video: p.video?.path ?? "",
+    available: p.is_visible,
+    categoryId: p.category_id ?? null,
+    sortOrder: p.sort_order ?? 0,
+  }))
+
+  const { data: catData } = await supabase
+    .from("category")
+    .select("id,name,sort_order")
+    .eq("restaurant_id", id)
+    .order("sort_order")
+  const categories: Category[] = (catData ?? []).map((c: any) => ({ id: c.id, name: c.name, sortOrder: c.sort_order }))
+
+  await supabase.rpc("increment_restaurant_views", { p_restaurant_id: id })
+
+  return {
+    id: restaurant.id,
+    name: restaurant.name,
+    cuisines,
+    image: (restaurant as any).cover?.path ?? "/placeholder.svg",
+    logo: (restaurant as any).logo?.path ?? "",
+    city: restaurant.city,
+    neighborhood: restaurant.neighborhood,
+    position: restaurant.address,
+    tags: cuisines.map((c) => c.name),
+    isFavorite: false,
+    deliveryTime: "20-40 min",
+    about: restaurant.description ?? "",
+    hours,
+    dishes,
+    categories,
+    restricted: restaurant.is_restricted,
+    visible: restaurant.is_visible,
+  }
+}
+
+/**
  * Get unique cuisines
  */
 export async function getUniqueCuisines(): Promise<string[]> {
   const restaurants = await getRestaurants()
-  const allCuisines = restaurants.flatMap((r) => r.cuisines)
+  const allCuisines = restaurants.flatMap((r) => r.cuisines.map((c) => c.name))
   return [...new Set(allCuisines)].sort()
 }
 
@@ -473,6 +572,44 @@ export async function reorderDishes(updates: Array<{ id: number; sortOrder: numb
       supabase.from("plate").update({ sort_order: sortOrder }).eq("id", id)
     )
   )
+}
+
+/**
+ * Get all cuisines defined in the system (admin-managed list)
+ */
+export async function getAvailableCuisines(): Promise<{ id: number; name: string }[]> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from("cuisine")
+    .select("id,name")
+    .order("name")
+  if (error) throw error
+  return (data ?? []).map((c: any) => ({ id: c.id, name: c.name }))
+}
+
+/**
+ * Replace a restaurant's cuisine associations.
+ * @param mainCuisineId  required main cuisine
+ * @param subCuisineIds  optional sub-cuisines (max 3)
+ */
+export async function updateRestaurantCuisines(
+  restaurantId: number,
+  mainCuisineId: number,
+  subCuisineIds: number[],
+): Promise<void> {
+  const supabase = getSupabase()
+  await supabase.from("restaurant_cuisine").delete().eq("restaurant_id", restaurantId)
+
+  const rows = [
+    { restaurant_id: restaurantId, cuisine_id: mainCuisineId, is_main: true },
+    ...subCuisineIds.map((cid) => ({
+      restaurant_id: restaurantId,
+      cuisine_id: cid,
+      is_main: false,
+    })),
+  ]
+  const { error } = await supabase.from("restaurant_cuisine").insert(rows)
+  if (error) throw error
 }
 
 export async function incrementRestaurantClick(restaurantId: number) {
