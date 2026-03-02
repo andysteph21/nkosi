@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { RestaurantInfoForm } from '@/components/my-restaurant/restaurant-info-form'
 import { DishManagementList } from '@/components/my-restaurant/dish-management-list'
@@ -9,24 +10,31 @@ import { StatsTab } from '@/components/my-restaurant/stats-tab'
 import { VisibilityTab } from '@/components/my-restaurant/visibility-tab'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Store } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function MyRestaurantPage() {
   const [activeTab, setActiveTab] = useState('info')
-  const [restaurantId, setRestaurantId] = useState<number | null>(null)
+  // undefined = still loading, null = confirmed no restaurant, number = restaurant id
+  const [restaurantId, setRestaurantId] = useState<number | null | undefined>(undefined)
 
   useEffect(() => {
     async function loadRestaurantId() {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: profile } = await supabase.from("profile").select("id").eq("user_id", user.id).single()
-      if (!profile) return
-      const { data: restaurant } = await supabase.from("restaurant").select("id").eq("profile_id", profile.id).maybeSingle()
-      if (restaurant?.id) {
-        setRestaurantId(restaurant.id)
+      try {
+        const supabase = createClient()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (!user) { setRestaurantId(null); return }
+        const { data: profile } = await supabase.from("profile").select("id").eq("user_id", user.id).single()
+        if (!profile) { setRestaurantId(null); return }
+        const { data: restaurant } = await supabase.from("restaurant").select("id").eq("profile_id", profile.id).maybeSingle()
+        setRestaurantId(restaurant?.id ?? null)
+      } catch (err) {
+        console.error('Failed to load restaurant id:', err)
+        setRestaurantId(null)
       }
     }
     loadRestaurantId()
@@ -42,35 +50,57 @@ export default function MyRestaurantPage() {
             <p className="text-muted-foreground">Gérez vos informations et votre menu</p>
           </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full max-w-3xl grid-cols-5">
-              <TabsTrigger value="info">Informations</TabsTrigger>
-              <TabsTrigger value="menu">Menu</TabsTrigger>
-              <TabsTrigger value="visibility">Visibilite</TabsTrigger>
-              <TabsTrigger value="qr">QR Code</TabsTrigger>
-              <TabsTrigger value="stats">Statistiques</TabsTrigger>
-            </TabsList>
+          {restaurantId === undefined ? (
+            <div className="text-center py-12 text-muted-foreground">Chargement...</div>
+          ) : restaurantId === null ? (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Store className="w-8 h-8 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold">Vous n&apos;avez pas encore de restaurant</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Créez votre restaurant pour gérer votre menu, votre visibilité et bien plus encore.
+                  </p>
+                </div>
+                <Button asChild>
+                  <Link href="/create-restaurant">Créer mon restaurant</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
+          {restaurantId ? (
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full max-w-3xl grid-cols-5">
+                <TabsTrigger value="info">Informations</TabsTrigger>
+                <TabsTrigger value="menu">Menu</TabsTrigger>
+                <TabsTrigger value="visibility">Visibilite</TabsTrigger>
+                <TabsTrigger value="qr">QR Code</TabsTrigger>
+                <TabsTrigger value="stats">Statistiques</TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="info" className="mt-6">
-              {restaurantId ? <RestaurantInfoForm restaurantId={restaurantId} /> : <p>Creation de votre restaurant requise.</p>}
-            </TabsContent>
+              <TabsContent value="info" className="mt-6">
+                <RestaurantInfoForm restaurantId={restaurantId} />
+              </TabsContent>
 
-            <TabsContent value="menu" className="mt-6">
-              {restaurantId ? <DishManagementList restaurantId={restaurantId} /> : <p>Aucun restaurant trouve.</p>}
-            </TabsContent>
+              <TabsContent value="menu" className="mt-6">
+                <DishManagementList restaurantId={restaurantId} />
+              </TabsContent>
 
-            <TabsContent value="visibility" className="mt-6">
-              {restaurantId ? <VisibilityTab restaurantId={restaurantId} /> : <p>Aucun restaurant trouve.</p>}
-            </TabsContent>
+              <TabsContent value="visibility" className="mt-6">
+                <VisibilityTab restaurantId={restaurantId} />
+              </TabsContent>
 
-            <TabsContent value="qr" className="mt-6">
-              {restaurantId ? <QrCodeTab restaurantId={restaurantId} /> : <p>Aucun restaurant trouve.</p>}
-            </TabsContent>
+              <TabsContent value="qr" className="mt-6">
+                <QrCodeTab restaurantId={restaurantId} />
+              </TabsContent>
 
-            <TabsContent value="stats" className="mt-6">
-              {restaurantId ? <StatsTab restaurantId={restaurantId} /> : <p>Aucun restaurant trouve.</p>}
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="stats" className="mt-6">
+                <StatsTab restaurantId={restaurantId} />
+              </TabsContent>
+            </Tabs>
+          ) : null}
         </div>
       </main>
       <Footer />
