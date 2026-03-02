@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { toggleFavorite } from "@/services/favorite.service"
 import { incrementRestaurantClick } from "@/services/restaurant.service"
+import { useAuth } from "@/components/providers/auth-provider"
 
 interface RestaurantCardProps {
   id: number
@@ -38,6 +39,8 @@ export function RestaurantCard({
   isFavorite = false,
   deliveryTime,
 }: RestaurantCardProps) {
+  const { profile } = useAuth()
+  const isClient = !profile || profile.role === "client"
   const [favorite, setFavorite] = useState(isFavorite)
   const displayedTags = useMemo(() => getRandomTags(tags, 2), [tags])
   const displayedCuisines = cuisines.slice(0, 3)
@@ -78,19 +81,21 @@ export function RestaurantCard({
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-transparent to-transparent" />
         
-        {/* Favorite Button */}
-        <button
-          onClick={handleFavoriteClick}
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-card/90 backdrop-blur-sm transition-all duration-200 hover:bg-highlight hover:scale-110"
-          aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
-        >
-          <Heart
-            className={cn(
-              "h-5 w-5 transition-colors duration-200",
-              favorite ? "fill-primary text-primary" : "text-muted-foreground"
-            )}
-          />
-        </button>
+        {/* Favorite Button (clients only) */}
+        {isClient && (
+          <button
+            onClick={handleFavoriteClick}
+            className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-card/90 backdrop-blur-sm transition-all duration-200 hover:bg-highlight hover:scale-110"
+            aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Heart
+              className={cn(
+                "h-5 w-5 transition-colors duration-200",
+                favorite ? "fill-primary text-primary" : "text-muted-foreground"
+              )}
+            />
+          </button>
+        )}
         
         {/* Tags */}
         {displayedTags.length > 0 && (

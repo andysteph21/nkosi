@@ -25,8 +25,9 @@ export async function toggleFavorite(restaurantId: number) {
   } = await supabase.auth.getUser()
   if (!user) return { requiresAuth: true }
 
-  const { data: profile } = await supabase.from("profile").select("id").eq("user_id", user.id).single()
+  const { data: profile } = await supabase.from("profile").select("id,role").eq("user_id", user.id).single()
   if (!profile) return { requiresAuth: true }
+  if (profile.role !== "client") return { clientOnly: true }
   const { data: existing } = await supabase
     .from("favorite")
     .select("profile_id,restaurant_id")
