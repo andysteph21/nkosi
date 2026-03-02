@@ -52,12 +52,22 @@ export function FavoritesStrip() {
             <Link
               href={`/restaurant/${row.restaurant.id}`}
               key={row.restaurant.id}
-              className="min-w-[220px] rounded-xl border bg-card p-3 hover:bg-accent transition-colors"
+              className="flex min-w-[220px] rounded-xl border bg-card overflow-hidden hover:bg-accent transition-colors"
             >
-              <p className="font-medium truncate">{row.restaurant.name}</p>
-              <p className="text-xs text-muted-foreground truncate">
-                {row.restaurant.neighborhood}, {row.restaurant.city}
-              </p>
+              <div className="h-[72px] w-[72px] shrink-0">
+                <img
+                  src={row.restaurant.cover?.path || "/placeholder.svg"}
+                  alt={row.restaurant.name}
+                  className="h-full w-full object-cover"
+                  crossOrigin="anonymous"
+                />
+              </div>
+              <div className="flex flex-col justify-center px-3 py-2 min-w-0">
+                <p className="font-medium truncate">{row.restaurant.name}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {row.restaurant.neighborhood}, {row.restaurant.city}
+                </p>
+              </div>
             </Link>
           ) : null
         )}
