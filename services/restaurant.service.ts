@@ -93,6 +93,27 @@ export async function getRestaurants(): Promise<Restaurant[]> {
   const { data: plates } = await supabase.from("plate").select("id,restaurant_id,name,price,image,video,is_visible,category_id,sort_order")
   const { data: allCategories } = await supabase.from("category").select("id,restaurant_id,name,sort_order").order("sort_order")
 
+  const favoriteIds = new Set<number>()
+  if (typeof window !== "undefined") {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profile")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle()
+        if (profile) {
+          const { data: favs } = await supabase
+            .from("favorite")
+            .select("restaurant_id")
+            .eq("profile_id", profile.id)
+          if (favs) favs.forEach((f: any) => favoriteIds.add(f.restaurant_id))
+        }
+      }
+    } catch { /* unauthenticated — all hearts unfilled */ }
+  }
+
   return (restaurants ?? []).map((restaurant: any) => {
     const cuisineRows = restaurant.restaurant_cuisine ?? []
     const cuisines: CuisineItem[] = cuisineRows
@@ -139,7 +160,7 @@ export async function getRestaurants(): Promise<Restaurant[]> {
       neighborhood: restaurant.neighborhood,
       position: restaurant.address,
       tags: cuisines.map((c) => c.name),
-      isFavorite: false,
+      isFavorite: favoriteIds.has(restaurant.id),
       deliveryTime: "20-40 min",
       about: restaurant.description ?? "",
       hours,
@@ -267,6 +288,27 @@ export async function getRestaurantByIdWithClient(
 
   await supabase.rpc("increment_restaurant_views", { p_restaurant_id: id })
 
+  let isFav = false
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profile")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle()
+      if (profile) {
+        const { data: fav } = await supabase
+          .from("favorite")
+          .select("profile_id")
+          .eq("profile_id", profile.id)
+          .eq("restaurant_id", id)
+          .maybeSingle()
+        isFav = !!fav
+      }
+    }
+  } catch { /* unauthenticated */ }
+
   return {
     id: restaurant.id,
     name: restaurant.name,
@@ -277,7 +319,7 @@ export async function getRestaurantByIdWithClient(
     neighborhood: restaurant.neighborhood,
     position: restaurant.address,
     tags: cuisines.map((c) => c.name),
-    isFavorite: false,
+    isFavorite: isFav,
     deliveryTime: "20-40 min",
     about: restaurant.description ?? "",
     hours,
