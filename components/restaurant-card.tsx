@@ -4,7 +4,7 @@ import { useState, useMemo } from "react"
 import { Heart, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
-import { toggleFavorite } from "@/services/favorite.service"
+import { toggleFavorite, type ToggleFavoriteResult } from "@/services/favorite.service"
 import { incrementRestaurantClick } from "@/services/restaurant.service"
 import { useAuth } from "@/components/providers/auth-provider"
 
@@ -42,22 +42,28 @@ export function RestaurantCard({
   const { profile } = useAuth()
   const isClient = !profile || profile.role === "client"
   const [favorite, setFavorite] = useState(isFavorite)
+  const [pending, setPending] = useState(false)
   const displayedTags = useMemo(() => getRandomTags(tags, 2), [tags])
   const displayedCuisines = cuisines.slice(0, 3)
 
   async function handleFavoriteClick(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
-
-    const result = await toggleFavorite(id)
-    if ((result as any).requiresAuth) {
-      const shouldRedirect = window.confirm("Créez un compte client pour ajouter des favoris. Continuer ?")
-      if (shouldRedirect) {
-        window.location.href = `/sign-up?role=client&redirect=/restaurant/${id}&auto_like=${id}`
+    if (pending) return
+    setPending(true)
+    try {
+      const result: ToggleFavoriteResult = await toggleFavorite(id)
+      if ("requiresAuth" in result) {
+        const shouldRedirect = window.confirm("Créez un compte client pour ajouter des favoris. Continuer ?")
+        if (shouldRedirect) {
+          window.location.href = `/sign-up?role=client&redirect=/restaurant/${id}&auto_like=${id}`
+        }
+        return
       }
-      return
+      if ("favorited" in result) setFavorite(result.favorited)
+    } finally {
+      setPending(false)
     }
-    setFavorite(Boolean((result as any).favorited))
   }
 
   return (
@@ -85,7 +91,8 @@ export function RestaurantCard({
         {isClient && (
           <button
             onClick={handleFavoriteClick}
-            className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-card/90 backdrop-blur-sm transition-all duration-200 hover:bg-highlight hover:scale-110"
+            disabled={pending}
+            className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-card/90 backdrop-blur-sm transition-all duration-200 hover:bg-highlight hover:scale-110 disabled:opacity-50"
             aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
           >
             <Heart

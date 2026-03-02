@@ -5,7 +5,7 @@ import { ArrowLeft, Heart, MapPin, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import type { Restaurant } from "@/services/restaurant.service"
-import { toggleFavorite } from "@/services/favorite.service"
+import { toggleFavorite, type ToggleFavoriteResult } from "@/services/favorite.service"
 import { useAuth } from "@/components/providers/auth-provider"
 
 interface RestaurantHeroProps {
@@ -16,14 +16,21 @@ export function RestaurantHero({ restaurant }: RestaurantHeroProps) {
   const { profile } = useAuth()
   const isClient = !profile || profile.role === "client"
   const [favorite, setFavorite] = useState(restaurant.isFavorite)
+  const [pending, setPending] = useState(false)
   async function onToggleFavorite() {
-    const result = await toggleFavorite(restaurant.id)
-    if ((result as any).requiresAuth) {
-      const go = window.confirm("Créez un compte client pour sauvegarder vos favoris. Continuer ?")
-      if (go) window.location.href = `/sign-up?role=client&redirect=/restaurant/${restaurant.id}&auto_like=${restaurant.id}`
-      return
+    if (pending) return
+    setPending(true)
+    try {
+      const result: ToggleFavoriteResult = await toggleFavorite(restaurant.id)
+      if ("requiresAuth" in result) {
+        const go = window.confirm("Créez un compte client pour sauvegarder vos favoris. Continuer ?")
+        if (go) window.location.href = `/sign-up?role=client&redirect=/restaurant/${restaurant.id}&auto_like=${restaurant.id}`
+        return
+      }
+      if ("favorited" in result) setFavorite(result.favorited)
+    } finally {
+      setPending(false)
     }
-    setFavorite(Boolean((result as any).favorited))
   }
 
   return (
@@ -51,7 +58,8 @@ export function RestaurantHero({ restaurant }: RestaurantHeroProps) {
           {isClient && (
             <button
               onClick={onToggleFavorite}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-card/90 backdrop-blur-sm transition-all hover:bg-highlight hover:scale-110"
+              disabled={pending}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-card/90 backdrop-blur-sm transition-all hover:bg-highlight hover:scale-110 disabled:opacity-50"
               aria-label={favorite ? "Retirer des favoris" : "Ajouter aux favoris"}
             >
               <Heart

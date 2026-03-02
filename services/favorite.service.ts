@@ -1,5 +1,10 @@
 import { createClient } from "@/lib/supabase/client"
 
+export type ToggleFavoriteResult =
+  | { requiresAuth: true }
+  | { clientOnly: true }
+  | { favorited: boolean }
+
 export async function getMyFavorites() {
   const supabase = createClient()
   const {
@@ -18,7 +23,7 @@ export async function getMyFavorites() {
   return data ?? []
 }
 
-export async function toggleFavorite(restaurantId: number) {
+export async function toggleFavorite(restaurantId: number): Promise<ToggleFavoriteResult> {
   const supabase = createClient()
   const {
     data: { user },
