@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button"
 
 interface QrCodeTabProps {
   restaurantId: number
+  logoUrl?: string
 }
 
 type ExportFormat = "jpeg" | "png" | "webp" | "svg"
 
-export function QrCodeTab({ restaurantId }: QrCodeTabProps) {
+export function QrCodeTab({ restaurantId, logoUrl }: QrCodeTabProps) {
   const [format, setFormat] = useState<ExportFormat>("jpeg")
   const [isBlack, setIsBlack] = useState(false)
   const url = useMemo(
@@ -48,6 +49,10 @@ export function QrCodeTab({ restaurantId }: QrCodeTabProps) {
     }
   }
 
+  const logoSettings = logoUrl
+    ? { src: logoUrl, height: 44, width: 44, excavate: true, crossOrigin: "anonymous" as const }
+    : undefined
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">Scannez ce QR code pour ouvrir votre page restaurant.</p>
@@ -57,11 +62,23 @@ export function QrCodeTab({ restaurantId }: QrCodeTabProps) {
             id="restaurant-qr-canvas"
             value={url}
             size={220}
+            level={logoUrl ? "H" : "M"}
             fgColor={isBlack ? "#000000" : "#2f5f2f"}
             bgColor="#ffffff"
             includeMargin
+            imageSettings={logoSettings}
           />
-          <QRCodeSVG id="restaurant-qr-svg" value={url} size={220} fgColor={isBlack ? "#000000" : "#2f5f2f"} bgColor="#ffffff" includeMargin className="hidden" />
+          <QRCodeSVG
+            id="restaurant-qr-svg"
+            value={url}
+            size={220}
+            level={logoUrl ? "H" : "M"}
+            fgColor={isBlack ? "#000000" : "#2f5f2f"}
+            bgColor="#ffffff"
+            includeMargin
+            imageSettings={logoSettings}
+            className="hidden"
+          />
         </div>
       </div>
       <div className="flex flex-wrap gap-2 items-center">

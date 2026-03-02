@@ -19,6 +19,7 @@ export default function MyRestaurantPage() {
   const [activeTab, setActiveTab] = useState('info')
   // undefined = still loading, null = confirmed no restaurant, number = restaurant id
   const [restaurantId, setRestaurantId] = useState<number | null | undefined>(undefined)
+  const [restaurantLogo, setRestaurantLogo] = useState<string>("")
 
   useEffect(() => {
     async function loadRestaurantId() {
@@ -30,8 +31,9 @@ export default function MyRestaurantPage() {
         if (!user) { setRestaurantId(null); return }
         const { data: profile } = await supabase.from("profile").select("id").eq("user_id", user.id).single()
         if (!profile) { setRestaurantId(null); return }
-        const { data: restaurant } = await supabase.from("restaurant").select("id").eq("profile_id", profile.id).maybeSingle()
+        const { data: restaurant } = await supabase.from("restaurant").select("id,logo").eq("profile_id", profile.id).maybeSingle()
         setRestaurantId(restaurant?.id ?? null)
+        setRestaurantLogo((restaurant as any)?.logo?.path ?? "")
       } catch (err) {
         console.error('Failed to load restaurant id:', err)
         setRestaurantId(null)
@@ -93,7 +95,7 @@ export default function MyRestaurantPage() {
               </TabsContent>
 
               <TabsContent value="qr" className="mt-6">
-                <QrCodeTab restaurantId={restaurantId} />
+                <QrCodeTab restaurantId={restaurantId} logoUrl={restaurantLogo} />
               </TabsContent>
 
               <TabsContent value="stats" className="mt-6">
