@@ -18,35 +18,25 @@ export function SignUpForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-sm font-medium">Prenom</label>
-          <Input name="firstName" required />
+          <Input name="firstName" required autoComplete="given-name" />
         </div>
         <div>
           <label className="text-sm font-medium">Nom</label>
-          <Input name="lastName" required />
+          <Input name="lastName" required autoComplete="family-name" />
         </div>
       </div>
       <div>
         <label className="text-sm font-medium">Email</label>
-        <Input name="email" type="email" required />
+        <Input name="email" type="email" required autoComplete="email" />
       </div>
-      <div>
-        <label className="text-sm font-medium">Type de compte</label>
-        <select
-          name="role"
-          defaultValue={defaultRole}
-          className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-        >
-          <option value="client">Client</option>
-          <option value="restaurateur">Restaurateur</option>
-        </select>
-      </div>
+      <input type="hidden" name="role" value={defaultRole} />
       <div>
         <label className="text-sm font-medium">Mot de passe</label>
-        <Input name="password" type="password" required />
+        <Input name="password" type="password" required autoComplete="new-password" />
       </div>
       <div>
         <label className="text-sm font-medium">Confirmer le mot de passe</label>
-        <Input name="confirmPassword" type="password" required />
+        <Input name="confirmPassword" type="password" required autoComplete="new-password" />
       </div>
       <Button className="w-full" type="submit">
         Creer mon compte
