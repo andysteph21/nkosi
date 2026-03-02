@@ -5,6 +5,45 @@ import { encodedRedirect } from "@/lib/auth-redirect"
 import { createClient } from "@/lib/supabase/server"
 import type { UserRole } from "@/lib/types"
 
+export async function resendConfirmationAction(formData: FormData) {
+  const supabase = await createClient()
+  const email = formData.get("email")?.toString().trim() ?? ""
+  if (!email) {
+    encodedRedirect("error", "/sign-in", "Email manquant.")
+  }
+  const { error } = await supabase.auth.resend({ type: "signup", email })
+  if (error) {
+    encodedRedirect("error", "/sign-in", "Impossible de renvoyer l'email de confirmation.")
+  }
+  redirect(`/check-email?email=${encodeURIComponent(email)}&resent=1`)
+}
+
+export async function updateProfileNamesAction(formData: FormData) {
+  const supabase = await createClient()
+  const firstName = formData.get("firstName")?.toString().trim() ?? ""
+  const lastName = formData.get("lastName")?.toString().trim() ?? ""
+
+  if (!firstName || !lastName) {
+    encodedRedirect("error", "/profile", "Veuillez remplir tous les champs.")
+  }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    encodedRedirect("error", "/profile", "Session invalide.")
+  }
+
+  const { error } = await supabase
+    .from("profile")
+    .update({ first_name: firstName, last_name: lastName })
+    .eq("user_id", user!.id)
+
+  if (error) {
+    encodedRedirect("error", "/profile", "Impossible de mettre a jour le profil.")
+  }
+
+  encodedRedirect("success", "/profile", "Profil mis a jour.")
+}
+
 const PUBLIC_SIGNUP_ROLES: UserRole[] = ["client", "restaurateur"]
 
 export async function signUpAction(formData: FormData) {
@@ -58,7 +97,17 @@ export async function signUpAction(formData: FormData) {
   }
   const createdUser = data.user!
 
-  const { error: profileError } = await supabase.from("profile").insert({
+  // Use service-role client to bypass RLS: the user's session isn't active yet
+  // while email confirmation is pending, so auth.uid() returns NULL and the
+  // profile_insert_self RLS policy would block a regular client insert.
+  const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+  const adminClient = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  )
+
+  const { error: profileError } = await adminClient.from("profile").insert({
     user_id: createdUser.id,
     first_name: firstName,
     last_name: lastName,
@@ -71,11 +120,7 @@ export async function signUpAction(formData: FormData) {
     encodedRedirect("error", "/sign-up", "Impossible de creer le profil utilisateur.")
   }
 
-  encodedRedirect(
-    "success",
-    "/sign-up",
-    "Compte cree. Verifiez votre email pour confirmer votre compte."
-  )
+  redirect(`/check-email?email=${encodeURIComponent(email)}`)
 }
 
 export async function signInAction(formData: FormData) {
@@ -85,6 +130,9 @@ export async function signInAction(formData: FormData) {
 
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) {
+    if (error.message === "Email not confirmed") {
+      redirect(`/sign-in?unconfirmed=${encodeURIComponent(email)}`)
+    }
     encodedRedirect("error", "/sign-in", "Email ou mot de passe invalide.")
   }
 
@@ -239,6 +287,72 @@ export async function markInitialPasswordChangedAction(formData: FormData) {
 
   console.log(TAG, "Done — success")
   return { success: true }
+}
+
+export async function firstSetupAction(formData: FormData) {
+  const supabase = await createClient()
+  const firstName = formData.get("firstName")?.toString().trim() ?? ""
+  const lastName = formData.get("lastName")?.toString().trim() ?? ""
+  const email = formData.get("email")?.toString().trim() ?? ""
+  const newPassword = formData.get("newPassword")?.toString() ?? ""
+  const confirmPassword = formData.get("confirmPassword")?.toString() ?? ""
+
+  if (!firstName || !lastName) {
+    encodedRedirect("error", "/first-setup", "Le prénom et le nom sont requis.")
+  }
+
+  if (!newPassword) {
+    encodedRedirect("error", "/first-setup", "Le mot de passe est requis.")
+  }
+
+  if (newPassword !== confirmPassword) {
+    encodedRedirect("error", "/first-setup", "Les mots de passe ne correspondent pas.")
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    encodedRedirect("error", "/first-setup", "Session invalide.")
+  }
+
+  const updatePayload: { password: string; email?: string } = { password: newPassword }
+  if (email && email !== user!.email) {
+    updatePayload.email = email
+  }
+
+  const { error: authError } = await supabase.auth.updateUser(updatePayload)
+  if (authError) {
+    encodedRedirect("error", "/first-setup", "Impossible de mettre à jour les informations.")
+  }
+
+  const { createClient: createServiceClient } = await import("@supabase/supabase-js")
+  const adminClient = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  )
+
+  await adminClient
+    .from("profile")
+    .update({
+      first_name: firstName,
+      last_name: lastName,
+      ...(email && email !== user!.email ? { email } : {}),
+      must_change_password: false,
+    })
+    .eq("user_id", user!.id)
+
+  if (email && email !== user!.email) {
+    encodedRedirect(
+      "success",
+      "/",
+      "Compte configuré. Un email de vérification a été envoyé à votre nouvelle adresse."
+    )
+  }
+
+  redirect("/")
 }
 
 export async function signOutAction() {
