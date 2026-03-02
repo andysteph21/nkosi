@@ -6,6 +6,7 @@ export interface Ad {
   alt: string
   link?: string
   active: boolean
+  endDate: Date | null
   createdAt: Date
   updatedAt: Date
 }
@@ -17,6 +18,7 @@ function mapAdRow(row: any): Ad {
     alt: row.alt_text ?? "Publicite",
     link: row.link_url ?? undefined,
     active: row.is_active,
+    endDate: row.end_date ? new Date(row.end_date) : null,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   }
@@ -50,7 +52,7 @@ export async function getAdById(id: number): Promise<Ad | null> {
   return data ? mapAdRow(data) : null
 }
 
-export async function createAd(image: string, alt: string, link?: string): Promise<Ad> {
+export async function createAd(image: string, alt: string, link?: string, endDate?: Date | null): Promise<Ad> {
   const supabase = createClient()
   const { count } = await supabase
     .from("ad")
@@ -64,6 +66,7 @@ export async function createAd(image: string, alt: string, link?: string): Promi
       alt_text: alt,
       link_url: link ?? null,
       is_active: (count ?? 0) < 10,
+      end_date: endDate ? endDate.toISOString() : null,
     })
     .select("*")
     .single()
@@ -76,8 +79,9 @@ export async function updateAd(id: number, updates: Partial<Omit<Ad, "id" | "cre
   const payload: Record<string, unknown> = {}
   if (typeof updates.image === "string") payload.media_url = updates.image
   if (typeof updates.alt === "string") payload.alt_text = updates.alt
-  if (typeof updates.link === "string") payload.link_url = updates.link
+  if ("link" in updates) payload.link_url = updates.link || null
   if (typeof updates.active === "boolean") payload.is_active = updates.active
+  if ("endDate" in updates) payload.end_date = updates.endDate ? updates.endDate.toISOString() : null
   const { data, error } = await supabase.from("ad").update(payload).eq("id", id).select("*").maybeSingle()
   if (error) throw error
   return data ? mapAdRow(data) : null

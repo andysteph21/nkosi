@@ -6,13 +6,14 @@ import type { Ad } from '@/services/ad.service'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Trash2, Power, Plus } from 'lucide-react'
+import { Trash2, Power, Plus, CalendarClock, Infinity, Pencil } from 'lucide-react'
 import { AddAdModal } from './add-ad-modal'
 
 export function AdsManagementTab() {
   const [ads, setAds] = useState<Ad[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [editingAd, setEditingAd] = useState<Ad | null>(null)
 
   useEffect(() => {
     fetchAds()
@@ -56,8 +57,7 @@ export function AdsManagementTab() {
     }
   }
 
-  async function handleAdAdded() {
-    setShowAddModal(false)
+  async function handleAdSaved() {
     await fetchAds()
   }
 
@@ -78,7 +78,12 @@ export function AdsManagementTab() {
         </Button>
       </div>
 
-      <AddAdModal open={showAddModal} onOpenChange={setShowAddModal} onAdded={handleAdAdded} />
+      <AddAdModal
+        open={showAddModal || editingAd !== null}
+        onOpenChange={(open) => { if (!open) { setShowAddModal(false); setEditingAd(null) } }}
+        onSaved={handleAdSaved}
+        ad={editingAd ?? undefined}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {ads.map(ad => (
@@ -100,8 +105,24 @@ export function AdsManagementTab() {
             <CardContent className="pt-4">
               <p className="text-sm font-medium text-foreground mb-2 line-clamp-2">{ad.alt}</p>
               {ad.link && (
-                <p className="text-xs text-muted-foreground mb-4 truncate">{ad.link}</p>
+                <p className="text-xs text-muted-foreground truncate">{ad.link}</p>
               )}
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 mb-4">
+                {ad.endDate ? (
+                  <>
+                    <CalendarClock className="h-3 w-3 shrink-0" />
+                    {ad.endDate < new Date()
+                      ? <span className="text-destructive">Expiré le {ad.endDate.toLocaleDateString('fr-FR')}</span>
+                      : <span>Expire le {ad.endDate.toLocaleDateString('fr-FR')}</span>
+                    }
+                  </>
+                ) : (
+                  <>
+                    <Infinity className="h-3 w-3 shrink-0" />
+                    Durée indéfinie
+                  </>
+                )}
+              </p>
               
               <div className="flex gap-2">
                 <Button
@@ -115,9 +136,17 @@ export function AdsManagementTab() {
                 </Button>
                 <Button
                   size="sm"
+                  variant="outline"
+                  onClick={() => setEditingAd(ad)}
+                  aria-label="Modifier"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="sm"
                   variant="destructive"
                   onClick={() => handleDelete(ad.id)}
-                  className="gap-1"
+                  aria-label="Supprimer"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
@@ -132,6 +161,7 @@ export function AdsManagementTab() {
           <CardContent className="pt-12 text-center">
             <p className="text-muted-foreground mb-4">Aucune publicité trouvée</p>
             <Button onClick={() => setShowAddModal(true)}>Créer la première publicité</Button>
+
           </CardContent>
         </Card>
       )}

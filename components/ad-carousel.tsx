@@ -8,10 +8,12 @@ import { cn } from "@/lib/utils"
 import { getActiveAds } from "@/services/ad.service"
 import type { Ad } from "@/services/ad.service"
 
+const INTERVAL_MS = 5000
+
 export function AdCarousel() {
   const [ads, setAds] = React.useState<Ad[]>([])
   const [currentIndex, setCurrentIndex] = React.useState(0)
-  const [isAutoPlaying, setIsAutoPlaying] = React.useState(true)
+  const [progress, setProgress] = React.useState(0)
   const [loading, setLoading] = React.useState(true)
 
   // Fetch active ads on mount
@@ -46,30 +48,48 @@ export function AdCarousel() {
   }
 
   React.useEffect(() => {
-    if (!isAutoPlaying) return
+    if (ads.length === 0) return
 
-    const interval = setInterval(() => {
+    setProgress(0)
+    const startTime = performance.now()
+
+    const tick = () => {
+      const elapsed = performance.now() - startTime
+      const pct = Math.min((elapsed / INTERVAL_MS) * 100, 100)
+      setProgress(pct)
+      if (pct < 100) {
+        rafRef.current = requestAnimationFrame(tick)
+      }
+    }
+
+    const rafRef = { current: 0 as number }
+    rafRef.current = requestAnimationFrame(tick)
+
+    const timeout = setTimeout(() => {
       goToNext()
-    }, 5000)
+    }, INTERVAL_MS)
 
-    return () => clearInterval(interval)
-  }, [isAutoPlaying, goToNext])
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      clearTimeout(timeout)
+    }
+  }, [currentIndex, ads.length, goToNext])
 
-  if (loading || ads.length === 0) {
+  if (loading) {
     return (
       <div className="relative w-full max-w-6xl mx-auto px-4">
-        <div className="relative aspect-[16/9] overflow-hidden rounded-2xl bg-muted animate-pulse" />
+        <div className="relative aspect-[16/9] max-h-[420px] max-w-[747px] mx-auto overflow-hidden rounded-2xl bg-muted animate-pulse" />
       </div>
     )
   }
 
+  if (ads.length === 0) {
+    return null
+  }
+
   return (
-    <div 
-      className="relative w-full max-w-6xl mx-auto px-4"
-      onMouseEnter={() => setIsAutoPlaying(false)}
-      onMouseLeave={() => setIsAutoPlaying(true)}
-    >
-      <div className="relative aspect-[16/9] overflow-hidden rounded-2xl bg-muted">
+    <div className="relative w-full max-w-6xl mx-auto px-4">
+      <div className="relative aspect-[16/9] max-h-[420px] max-w-[747px] mx-auto overflow-hidden rounded-2xl bg-muted">
         {ads.map((ad, index) => (
           <div
             key={ad.id}
@@ -79,12 +99,12 @@ export function AdCarousel() {
             )}
           >
             {ad.link ? (
-              <a href={ad.link} className="block w-full h-full">
+              <a href={ad.link} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
                 <Image
                   src={ad.image || "/placeholder.svg"}
                   alt={ad.alt}
                   fill
-                  className="object-cover"
+                  className="object-contain object-center"
                   priority={index === 0}
                 />
               </a>
@@ -93,7 +113,7 @@ export function AdCarousel() {
                 src={ad.image || "/placeholder.svg"}
                 alt={ad.alt}
                 fill
-                className="object-cover"
+                className="object-contain object-center"
                 priority={index === 0}
               />
             )}
@@ -142,6 +162,14 @@ export function AdCarousel() {
           <span className="px-2 py-1 text-xs font-medium bg-card/80 backdrop-blur-sm rounded text-muted-foreground">
             Publicité
           </span>
+        </div>
+
+        {/* Progress bar */}
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20">
+          <div
+            className="h-full bg-highlight transition-none"
+            style={{ width: `${progress}%` }}
+          />
         </div>
       </div>
     </div>

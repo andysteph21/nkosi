@@ -10,10 +10,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1">
-        <HeroBanner />
-        <div className="py-6">
-          <AdCarousel />
-        </div>
+        <HeroBanner adSlot={<AdCarousel />} />
         <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
           <FavoritesStrip />
           <RestaurantSection />
