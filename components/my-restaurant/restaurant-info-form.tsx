@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { getRestaurantById, updateRestaurantData } from '@/services/restaurant.service'
+import { getRestaurantById, updateRestaurantData, getAvailableCuisines, updateRestaurantCuisines } from '@/services/restaurant.service'
 import type { Restaurant } from '@/services/restaurant.service'
+import { CuisineSelector } from '@/components/cuisine-selector'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -73,6 +74,10 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
     type: 'logo' | 'cover'
   }>({ open: false, src: '', type: 'logo' })
 
+  const [availableCuisines, setAvailableCuisines] = useState<{ id: number; name: string }[]>([])
+  const [mainCuisineId, setMainCuisineId] = useState<number | null>(null)
+  const [subCuisineIds, setSubCuisineIds] = useState<number[]>([])
+
   useUnsavedChanges(hasChanges)
 
   function validateSchedule(): boolean {
@@ -92,7 +97,11 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
   async function fetchRestaurant() {
     try {
       setLoading(true)
-      const data = await getRestaurantById(restaurantId)
+      const [data, allCuisines] = await Promise.all([
+        getRestaurantById(restaurantId),
+        getAvailableCuisines(),
+      ])
+      setAvailableCuisines(allCuisines)
       if (data) {
         setRestaurant(data)
         setFormData({
@@ -105,6 +114,9 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
           logo: data.logo,
           schedule: data.hours.map(dayHoursToEntry),
         })
+        const main = data.cuisines.find((c) => c.isMain)
+        setMainCuisineId(main?.id ?? null)
+        setSubCuisineIds(data.cuisines.filter((c) => !c.isMain).map((c) => c.id))
         setHasChanges(false)
       }
     } catch (error) {
@@ -170,6 +182,9 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
         ...(logoPreview ? { logo: formData.logo } : {}),
         hours: formData.schedule.map(entryToDayHours),
       })
+      if (mainCuisineId) {
+        await updateRestaurantCuisines(restaurantId, mainCuisineId, subCuisineIds)
+      }
       setMessage({ type: 'success', text: 'Les informations ont été mises à jour avec succès' })
       setHasChanges(false)
       setScheduleError(null)
@@ -345,6 +360,20 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
                 required
               />
             </div>
+
+            {/* Cuisines */}
+            {availableCuisines.length > 0 && (
+              <CuisineSelector
+                cuisines={availableCuisines}
+                initialMainId={mainCuisineId}
+                initialSubIds={subCuisineIds}
+                onChange={(mainId, subIds) => {
+                  setMainCuisineId(mainId)
+                  setSubCuisineIds(subIds)
+                  handleFormChange()
+                }}
+              />
+            )}
 
             {/* Schedule */}
             <div>

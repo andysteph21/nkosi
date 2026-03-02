@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
+import { CuisineSelector } from "@/components/cuisine-selector"
+import { getAvailableCuisines } from "@/services/restaurant.service"
 
 export default async function CreateRestaurantPage({
   searchParams,
@@ -13,6 +15,7 @@ export default async function CreateRestaurantPage({
   searchParams: Promise<{ error?: string; success?: string }>
 }) {
   const params = await searchParams
+  const cuisines = await getAvailableCuisines()
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -34,6 +37,7 @@ export default async function CreateRestaurantPage({
                   <Input name="neighborhood" placeholder="Quartier" required />
                 </div>
                 <Textarea name="address" placeholder="Adresse detaillee" required />
+                <CuisineSelector cuisines={cuisines} />
                 <Button type="submit">Creer</Button>
               </form>
               <Link href="/my-restaurant" className="text-sm underline">

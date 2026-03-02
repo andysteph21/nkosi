@@ -26,6 +26,17 @@ export async function createRestaurantAction(formData: FormData) {
   const { data, error } = await supabase.from("restaurant").insert(payload).select("id").single()
   if (error) redirect("/create-restaurant?error=Impossible%20de%20creer%20le%20restaurant.")
 
+  const mainCuisineId = formData.get("main_cuisine_id")?.toString()
+  const subCuisineIds = formData.getAll("sub_cuisine_ids").map((v) => Number(v)).filter(Boolean)
+
+  if (mainCuisineId) {
+    const cuisineRows = [
+      { restaurant_id: data.id, cuisine_id: Number(mainCuisineId), is_main: true },
+      ...subCuisineIds.map((cid) => ({ restaurant_id: data.id, cuisine_id: cid, is_main: false })),
+    ]
+    await supabase.from("restaurant_cuisine").insert(cuisineRows)
+  }
+
   revalidatePath("/my-restaurant")
   redirect(`/my-restaurant?success=Restaurant%20cree&id=${data.id}`)
 }

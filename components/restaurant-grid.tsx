@@ -124,7 +124,7 @@ export function RestaurantGrid({ search, selectedCuisines, selectedCity, selecte
                   key={restaurant.id}
                   id={restaurant.id}
                   name={restaurant.name}
-                  cuisines={restaurant.cuisines}
+                  cuisines={restaurant.cuisines.map(c => c.name)}
                   image={restaurant.image}
                   city={restaurant.city}
                   neighborhood={restaurant.neighborhood}
@@ -182,7 +182,7 @@ export function RestaurantGrid({ search, selectedCuisines, selectedCity, selecte
                   key={restaurant.id}
                   id={restaurant.id}
                   name={restaurant.name}
-                  cuisines={restaurant.cuisines}
+                  cuisines={restaurant.cuisines.map(c => c.name)}
                   image={restaurant.image}
                   city={restaurant.city}
                   neighborhood={restaurant.neighborhood}

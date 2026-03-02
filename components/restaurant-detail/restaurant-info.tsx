@@ -15,10 +15,14 @@ export function RestaurantInfo({ restaurant }: RestaurantInfoProps) {
         <div className="mt-3 flex flex-wrap gap-2">
           {restaurant.cuisines.map((cuisine) => (
             <span
-              key={cuisine}
-              className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+              key={cuisine.id}
+              className={
+                cuisine.isMain
+                  ? "rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground"
+                  : "rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+              }
             >
-              {cuisine}
+              {cuisine.name}
             </span>
           ))}
         </div>
