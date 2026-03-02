@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { getMyFavorites } from "@/services/favorite.service"
+import { useAuth } from "@/components/providers/auth-provider"
 
 interface FavoriteRestaurant {
   restaurant_id: number
@@ -17,14 +18,17 @@ interface FavoriteRestaurant {
 }
 
 export function FavoritesStrip() {
+  const { profile } = useAuth()
   const [favorites, setFavorites] = useState<FavoriteRestaurant[]>([])
   const [search, setSearch] = useState("")
+  const isClient = !profile || profile.role === "client"
 
   useEffect(() => {
+    if (!isClient) return
     getMyFavorites()
       .then((rows) => setFavorites(rows as unknown as FavoriteRestaurant[]))
       .catch(() => setFavorites([]))
-  }, [])
+  }, [isClient])
 
   const filtered = useMemo(() => {
     if (!search.trim()) return favorites
@@ -33,7 +37,7 @@ export function FavoritesStrip() {
     )
   }, [favorites, search])
 
-  if (!favorites.length) return null
+  if (!isClient || !favorites.length) return null
 
   return (
     <section className="space-y-3">
