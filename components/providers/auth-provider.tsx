@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useMemo, useState } from "react"
+import { createContext, useContext, useMemo, useState, useEffect } from "react"
 import type { Profile } from "@/lib/types"
 
 interface AuthContextValue {
@@ -18,6 +18,13 @@ export function AuthProvider({
   children: React.ReactNode
 }) {
   const [profile, setProfile] = useState<Profile | null>(initialProfile)
+
+  // useState only reads its argument on first mount. When the server re-renders
+  // the layout after a redirect (e.g. after sign-in), the new initialProfile
+  // prop is ignored unless we sync it here.
+  useEffect(() => {
+    setProfile(initialProfile)
+  }, [initialProfile])
 
   const value = useMemo(
     () => ({
