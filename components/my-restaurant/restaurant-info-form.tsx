@@ -22,18 +22,11 @@ import { ScheduleEditor, dayHoursToEntry, entryToDayHours, isEntryValid } from '
 import type { ScheduleEntry } from '@/components/my-restaurant/schedule-editor'
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
 
-// Checkerboard reveals whether the logo has a transparent background.
-const CHECKER_BG =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect width='8' height='8' fill='%23ccc'/%3E%3Crect x='8' y='8' width='8' height='8' fill='%23ccc'/%3E%3Crect x='8' width='8' height='8' fill='%23fff'/%3E%3Crect y='8' width='8' height='8' fill='%23fff'/%3E%3C/svg%3E\")"
-
 function LogoPreview({ src, isNew }: { src: string; isNew: boolean }) {
   return (
     <div className="flex flex-col gap-1 min-w-[96px]">
       <p className="text-xs text-muted-foreground">{isNew ? 'Nouveau logo' : 'Logo actuel'}</p>
-      <div
-        className="w-24 h-24 rounded-lg border border-input overflow-hidden"
-        style={{ backgroundImage: CHECKER_BG, backgroundSize: '16px 16px' }}
-      >
+      <div className="w-24 h-24 rounded-lg border border-input overflow-hidden bg-white">
         <img src={src} alt="Logo" className="w-full h-full object-contain" />
       </div>
     </div>

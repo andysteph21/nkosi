@@ -79,7 +79,7 @@ export function RestaurantHero({ restaurant }: RestaurantHeroProps) {
               <img
                 src={restaurant.logo}
                 alt={`Logo ${restaurant.name}`}
-                className="h-16 w-16 shrink-0 rounded-2xl bg-card/90 backdrop-blur-sm object-contain"
+                className="h-16 w-16 shrink-0 rounded-2xl bg-white backdrop-blur-sm object-contain"
                 crossOrigin="anonymous"
               />
             ) : (
