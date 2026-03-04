@@ -95,7 +95,7 @@ export default function MyRestaurantPage() {
               </TabsContent>
 
               <TabsContent value="qr" className="mt-6">
-                <QrCodeTab restaurantId={restaurantId} logoUrl={restaurantLogo} />
+                <QrCodeTab restaurantId={restaurantId} logoUrl="/images/nkosi-logo.png" />
               </TabsContent>
 
               <TabsContent value="stats" className="mt-6">

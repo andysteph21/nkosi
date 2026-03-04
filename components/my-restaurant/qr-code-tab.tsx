@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react"
 import { Button } from "@/components/ui/button"
 
@@ -11,13 +11,44 @@ interface QrCodeTabProps {
 
 type ExportFormat = "jpeg" | "png" | "webp" | "svg"
 
+const LOGO_SIZE = 44
+const LOGO_PADDING = 8
+const PADDED_SIZE = LOGO_SIZE + LOGO_PADDING * 2
+
+function buildPaddedLogo(src: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = "anonymous"
+    img.onload = () => {
+      const canvas = document.createElement("canvas")
+      canvas.width = PADDED_SIZE
+      canvas.height = PADDED_SIZE
+      const ctx = canvas.getContext("2d")!
+      ctx.fillStyle = "#ffffff"
+      ctx.beginPath()
+      ctx.roundRect(0, 0, PADDED_SIZE, PADDED_SIZE, 6)
+      ctx.fill()
+      ctx.drawImage(img, LOGO_PADDING, LOGO_PADDING, LOGO_SIZE, LOGO_SIZE)
+      resolve(canvas.toDataURL("image/png"))
+    }
+    img.onerror = reject
+    img.src = src
+  })
+}
+
 export function QrCodeTab({ restaurantId, logoUrl }: QrCodeTabProps) {
   const [format, setFormat] = useState<ExportFormat>("jpeg")
   const [isBlack, setIsBlack] = useState(false)
+  const [paddedLogoSrc, setPaddedLogoSrc] = useState<string | null>(null)
   const url = useMemo(
     () => `${typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:3000"}/restaurant/${restaurantId}`,
     [restaurantId]
   )
+
+  useEffect(() => {
+    if (!logoUrl) return
+    buildPaddedLogo(logoUrl).then(setPaddedLogoSrc).catch(() => setPaddedLogoSrc(null))
+  }, [logoUrl])
 
   function downloadCanvas(targetFormat: "jpeg" | "png" | "webp") {
     const canvas = document.getElementById("restaurant-qr-canvas") as HTMLCanvasElement | null
@@ -49,8 +80,8 @@ export function QrCodeTab({ restaurantId, logoUrl }: QrCodeTabProps) {
     }
   }
 
-  const logoSettings = logoUrl
-    ? { src: logoUrl, height: 44, width: 44, excavate: true, crossOrigin: "anonymous" as const }
+  const logoSettings = paddedLogoSrc
+    ? { src: paddedLogoSrc, height: PADDED_SIZE, width: PADDED_SIZE, excavate: true, crossOrigin: "anonymous" as const }
     : undefined
 
   return (
@@ -62,20 +93,18 @@ export function QrCodeTab({ restaurantId, logoUrl }: QrCodeTabProps) {
             id="restaurant-qr-canvas"
             value={url}
             size={220}
-            level={logoUrl ? "H" : "M"}
+            level={paddedLogoSrc ? "H" : "M"}
             fgColor={isBlack ? "#000000" : "#2f5f2f"}
             bgColor="#ffffff"
-            includeMargin
             imageSettings={logoSettings}
           />
           <QRCodeSVG
             id="restaurant-qr-svg"
             value={url}
             size={220}
-            level={logoUrl ? "H" : "M"}
+            level={paddedLogoSrc ? "H" : "M"}
             fgColor={isBlack ? "#000000" : "#2f5f2f"}
             bgColor="#ffffff"
-            includeMargin
             imageSettings={logoSettings}
             className="hidden"
           />
