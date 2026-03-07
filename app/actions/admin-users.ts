@@ -15,7 +15,13 @@ export async function inviteAdminAction(formData: FormData) {
   if (exists) return { error: "Cet email existe deja." }
 
   const adminClient = createAdminClient()
-  const redirectTo = `${process.env.NEXT_PUBLIC_BASE_URL}/admin-setup`
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+  if (!baseUrl) {
+    console.error("[inviteAdminAction] NEXT_PUBLIC_BASE_URL is not set")
+    return { error: "Configuration manquante (BASE_URL)." }
+  }
+  const redirectTo = `${baseUrl}/auth/callback?redirect_to=/admin-setup`
+  console.log("[inviteAdminAction] redirectTo:", redirectTo)
   const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email, {
     redirectTo,
     data: { first_name: firstName, last_name: lastName },
@@ -68,7 +74,13 @@ export async function resendAdminInviteAction(userId: string) {
   }
 
   const adminClient = createAdminClient()
-  const redirectTo = `${process.env.NEXT_PUBLIC_BASE_URL}/admin-setup`
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+  if (!baseUrl) {
+    console.error("[resendAdminInviteAction] NEXT_PUBLIC_BASE_URL is not set")
+    return { error: "Configuration manquante (BASE_URL)." }
+  }
+  const redirectTo = `${baseUrl}/auth/callback?redirect_to=/admin-setup`
+  console.log("[resendAdminInviteAction] redirectTo:", redirectTo)
   const { error } = await adminClient.auth.admin.inviteUserByEmail(adminProfile.email, {
     redirectTo,
     data: { first_name: adminProfile.first_name, last_name: adminProfile.last_name },
