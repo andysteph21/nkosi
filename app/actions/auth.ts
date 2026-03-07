@@ -13,6 +13,7 @@ export async function resendConfirmationAction(formData: FormData) {
   }
   const { error } = await supabase.auth.resend({ type: "signup", email })
   if (error) {
+    console.error("[resendConfirmationAction]", error)
     encodedRedirect("error", "/sign-in", "Impossible de renvoyer l'email de confirmation.")
   }
   redirect(`/check-email?email=${encodeURIComponent(email)}&resent=1`)
@@ -38,6 +39,7 @@ export async function updateProfileNamesAction(formData: FormData) {
     .eq("user_id", user!.id)
 
   if (error) {
+    console.error("[updateProfileNamesAction]", error)
     encodedRedirect("error", "/profile", "Impossible de mettre a jour le profil.")
   }
 
@@ -83,6 +85,7 @@ export async function signUpAction(formData: FormData) {
   })
 
   if (error || !data.user) {
+    console.error("[signUpAction] auth.signUp error:", error)
     encodedRedirect("error", "/sign-up", "Erreur lors de la creation du compte.")
   }
   const createdUser = data.user!
@@ -103,6 +106,7 @@ export async function signUpAction(formData: FormData) {
   })
 
   if (profileError) {
+    console.error("[signUpAction] profile insert error:", profileError)
     encodedRedirect("error", "/sign-up", "Impossible de creer le profil utilisateur.")
   }
 
@@ -119,6 +123,7 @@ export async function signInAction(formData: FormData) {
     if (error.message === "Email not confirmed") {
       redirect(`/sign-in?unconfirmed=${encodeURIComponent(email)}`)
     }
+    console.error("[signInAction]", error)
     encodedRedirect("error", "/sign-in", "Email ou mot de passe invalide.")
   }
 
@@ -154,6 +159,7 @@ export async function forgotPasswordAction(formData: FormData) {
   })
 
   if (error) {
+    console.error("[forgotPasswordAction]", error)
     encodedRedirect("error", "/forgot-password", "Impossible d'envoyer l'email de reinitialisation.")
   }
 
@@ -171,6 +177,7 @@ export async function resetPasswordAction(formData: FormData) {
 
   const { error } = await supabase.auth.updateUser({ password })
   if (error) {
+    console.error("[resetPasswordAction]", error)
     encodedRedirect("error", "/reset-password", "Impossible de mettre a jour le mot de passe.")
   }
 
@@ -206,11 +213,13 @@ export async function changePasswordAction(formData: FormData) {
   })
 
   if (signInError) {
+    console.error("[changePasswordAction] re-auth error:", signInError)
     encodedRedirect("error", "/profile", "Mot de passe actuel incorrect.")
   }
 
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) {
+    console.error("[changePasswordAction] updateUser error:", error)
     encodedRedirect("error", "/profile", "Impossible de changer le mot de passe.")
   }
 
@@ -220,6 +229,7 @@ export async function changePasswordAction(formData: FormData) {
     .eq("user_id", userId)
 
   if (profileErr) {
+    console.error("[changePasswordAction] profile update error:", profileErr)
     encodedRedirect("error", "/profile", "Mot de passe modifie mais mise a jour du profil echouee.")
   }
 
@@ -264,6 +274,7 @@ export async function firstSetupAction(formData: FormData): Promise<{ error?: st
     email,
   })
   if (authError) {
+    console.error("[firstSetupAction] updateUser error:", authError)
     return { error: "Impossible de mettre à jour les informations." }
   }
 
@@ -281,6 +292,7 @@ export async function firstSetupAction(formData: FormData): Promise<{ error?: st
     .eq("user_id", user.id)
 
   if (profileError) {
+    console.error("[firstSetupAction] profile update error:", profileError)
     return { error: "Informations mises à jour mais le profil n'a pas pu être sauvegardé." }
   }
 

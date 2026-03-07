@@ -20,7 +20,10 @@ export async function inviteAdminAction(formData: FormData) {
     redirectTo,
     data: { first_name: firstName, last_name: lastName },
   })
-  if (error || !data.user) return { error: "Invitation impossible." }
+  if (error || !data.user) {
+    console.error("[inviteAdminAction] inviteUserByEmail error:", error)
+    return { error: "Invitation impossible." }
+  }
 
   const { error: profileError } = await adminClient.from("profile").insert({
     user_id: data.user.id,
@@ -32,7 +35,10 @@ export async function inviteAdminAction(formData: FormData) {
     must_change_password: true,
   })
 
-  if (profileError) return { error: "Invitation envoyee mais creation du profil admin echouee." }
+  if (profileError) {
+    console.error("[inviteAdminAction] profile insert error:", profileError)
+    return { error: "Invitation envoyee mais creation du profil admin echouee." }
+  }
   revalidatePath("/admin")
   return { success: true }
 }
@@ -67,7 +73,10 @@ export async function resendAdminInviteAction(userId: string) {
     redirectTo,
     data: { first_name: adminProfile.first_name, last_name: adminProfile.last_name },
   })
-  if (error) return { error: "Impossible de renvoyer l'invitation." }
+  if (error) {
+    console.error("[resendAdminInviteAction] inviteUserByEmail error:", error)
+    return { error: "Impossible de renvoyer l'invitation." }
+  }
 
   await supabase.from("profile").update({ invited_at: new Date().toISOString() }).eq("user_id", userId)
   revalidatePath("/admin")
