@@ -15,7 +15,7 @@ Application Next.js + Supabase pour la decouverte de restaurants africains, avec
 ## Prerequis
 
 - Node.js 20+
-- pnpm 9+
+- pnpm 10+ (see `packageManager` in `package.json`)
 - Supabase CLI
 
 ## Installation
