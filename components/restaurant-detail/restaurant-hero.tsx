@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ArrowLeft, Heart, MapPin, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import type { Restaurant } from "@/services/restaurant.service"
-import { toggleFavorite, type ToggleFavoriteResult } from "@/services/favorite.service"
+import { getIsFavorite, toggleFavorite, type ToggleFavoriteResult } from "@/services/favorite.service"
 import { useAuth } from "@/components/providers/auth-provider"
 
 interface RestaurantHeroProps {
@@ -15,8 +15,17 @@ interface RestaurantHeroProps {
 export function RestaurantHero({ restaurant }: RestaurantHeroProps) {
   const { profile } = useAuth()
   const isClient = !profile || profile.role === "client"
-  const [favorite, setFavorite] = useState(restaurant.isFavorite)
+  // Start as false (matches SSR value) and resolve client-side after mount to
+  // avoid blocking the server render on 3 sequential auth → profile → favorite queries.
+  const [favorite, setFavorite] = useState(false)
   const [pending, setPending] = useState(false)
+
+  useEffect(() => {
+    // profile===null means not logged in — skip the round-trip entirely.
+    if (!profile) return
+    if (!isClient) return
+    getIsFavorite(restaurant.id).then(setFavorite)
+  }, [restaurant.id, isClient, profile])
   async function onToggleFavorite() {
     if (pending) return
     setPending(true)

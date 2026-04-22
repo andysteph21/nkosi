@@ -1,5 +1,4 @@
-import { getRestaurantByIdWithClient } from "@/services/restaurant.service"
-import { createClient } from "@/lib/supabase/server"
+import { getRestaurantPage } from "@/services/restaurant.service"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { RestaurantHero } from "@/components/restaurant-detail/restaurant-hero"
@@ -7,14 +6,17 @@ import { RestaurantInfo } from "@/components/restaurant-detail/restaurant-info"
 import { DishesSection } from "@/components/restaurant-detail/dishes-section"
 import { notFound } from "next/navigation"
 
+// ISR: revalidate every 5 minutes. Owner mutations call
+// revalidatePath(`/restaurant/${id}`) which triggers an immediate re-render.
+export const revalidate = 300
+
 interface RestaurantPageProps {
   params: Promise<{ id: string }>
 }
 
 export default async function RestaurantPage({ params }: RestaurantPageProps) {
   const { id } = await params
-  const supabase = await createClient()
-  const restaurant = await getRestaurantByIdWithClient(supabase, Number(id))
+  const restaurant = await getRestaurantPage(Number(id))
 
   if (!restaurant) {
     notFound()
