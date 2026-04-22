@@ -1,44 +1,42 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useMemo, useState } from "react"
 import { MapPin, Building2, UtensilsCrossed, X } from "lucide-react"
 import { CuisineFilters } from "@/components/cuisine-filters"
 import { FilterDropdown } from "@/components/filter-dropdown"
 import { RestaurantGrid } from "@/components/restaurant-grid"
 import { SearchBar } from "@/components/search-bar"
 import { Button } from "@/components/ui/button"
-import { getUniqueCuisines, getUniqueCities, getUniqueNeighborhoods } from "@/services/restaurant.service"
+import type { RestaurantListItem } from "@/services/restaurant.service"
 
-export function RestaurantSection() {
+interface RestaurantSectionProps {
+  initialRestaurants: RestaurantListItem[]
+}
+
+export function RestaurantSection({ initialRestaurants }: RestaurantSectionProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCuisines, setSelectedCuisines] = useState<string[]>([])
   const [selectedCity, setSelectedCity] = useState("all")
   const [selectedNeighborhood, setSelectedNeighborhood] = useState("all")
-  const [uniqueCuisines, setUniqueCuisines] = useState<string[]>([])
-  const [uniqueCities, setUniqueCities] = useState<string[]>([])
-  const [uniqueNeighborhoods, setUniqueNeighborhoods] = useState<string[]>([])
 
-  // Fetch unique cuisines and cities on mount
-  useEffect(() => {
-    async function fetchFilters() {
-      const [cuisines, cities] = await Promise.all([
-        getUniqueCuisines(),
-        getUniqueCities(),
-      ])
-      setUniqueCuisines(cuisines)
-      setUniqueCities(cities)
-    }
-    fetchFilters()
-  }, [])
+  // Derive filter options directly from the data – zero extra fetches
+  const uniqueCuisines = useMemo(
+    () => [...new Set(initialRestaurants.flatMap((r) => r.cuisines.map((c) => c.name)))].sort(),
+    [initialRestaurants],
+  )
 
-  // Fetch neighborhoods when city changes
-  useEffect(() => {
-    async function fetchNeighborhoods() {
-      const neighborhoods = await getUniqueNeighborhoods(selectedCity)
-      setUniqueNeighborhoods(neighborhoods)
-    }
-    fetchNeighborhoods()
-  }, [selectedCity])
+  const uniqueCities = useMemo(
+    () => [...new Set(initialRestaurants.map((r) => r.city))].sort(),
+    [initialRestaurants],
+  )
+
+  const uniqueNeighborhoods = useMemo(() => {
+    const source =
+      selectedCity === "all"
+        ? initialRestaurants
+        : initialRestaurants.filter((r) => r.city === selectedCity)
+    return [...new Set(source.map((r) => r.neighborhood))].sort()
+  }, [initialRestaurants, selectedCity])
 
   const cuisineOptions = uniqueCuisines.map((c) => ({ value: c, label: c }))
 
@@ -53,12 +51,9 @@ export function RestaurantSection() {
   ]
 
   function handleCuisineToggle(cuisine: string) {
-    setSelectedCuisines((prev) => {
-      if (prev.includes(cuisine)) {
-        return prev.filter((c) => c !== cuisine)
-      }
-      return [...prev, cuisine]
-    })
+    setSelectedCuisines((prev) =>
+      prev.includes(cuisine) ? prev.filter((c) => c !== cuisine) : [...prev, cuisine],
+    )
   }
 
   function handleCityChange(city: string) {
@@ -73,7 +68,11 @@ export function RestaurantSection() {
     setSelectedNeighborhood("all")
   }
 
-  const hasActiveFilters = searchQuery.trim() !== "" || selectedCuisines.length > 0 || selectedCity !== "all" || selectedNeighborhood !== "all"
+  const hasActiveFilters =
+    searchQuery.trim() !== "" ||
+    selectedCuisines.length > 0 ||
+    selectedCity !== "all" ||
+    selectedNeighborhood !== "all"
 
   return (
     <div className="space-y-6">
@@ -149,6 +148,7 @@ export function RestaurantSection() {
         )}
       </div>
       <RestaurantGrid
+        restaurants={initialRestaurants}
         search={searchQuery}
         selectedCuisines={selectedCuisines}
         selectedCity={selectedCity}

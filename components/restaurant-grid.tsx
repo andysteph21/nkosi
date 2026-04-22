@@ -1,60 +1,75 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { ChevronLeft, ChevronRight, ArrowUp } from "lucide-react"
 import { RestaurantCard } from "@/components/restaurant-card"
+import { RestaurantCardSkeleton } from "@/components/restaurant-card"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { Restaurant } from "@/services/restaurant.service"
-import { getFilteredRestaurants } from "@/services/restaurant.service"
+import { fuzzyMatchAny } from "@/lib/fuzzy-search"
+import type { RestaurantListItem } from "@/services/restaurant.service"
+import { getMyFavoriteRestaurantIds } from "@/services/restaurant.service"
 
 const ITEMS_PER_PAGE = 6
 
-// Empty initial state - data loads from service
-const cachedRestaurants: Restaurant[] = []
-
 interface RestaurantGridProps {
+  restaurants: RestaurantListItem[]
   search: string
   selectedCuisines: string[]
   selectedCity: string
   selectedNeighborhood: string
 }
 
-export function RestaurantGrid({ search, selectedCuisines, selectedCity, selectedNeighborhood }: RestaurantGridProps) {
+export function RestaurantGrid({
+  restaurants,
+  search,
+  selectedCuisines,
+  selectedCity,
+  selectedNeighborhood,
+}: RestaurantGridProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [mobileDisplayCount, setMobileDisplayCount] = useState(ITEMS_PER_PAGE)
   const [showScrollTop, setShowScrollTop] = useState(false)
-  const [filtered, setFiltered] = useState<Restaurant[]>(cachedRestaurants)
-  const [loading, setLoading] = useState(false)
+  // Start loading only if there are no SSR-supplied restaurants to avoid flash
+  const [loading, setLoading] = useState(restaurants.length === 0)
+  const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set())
   const gridRef = useRef<HTMLDivElement>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
 
-  // Fetch filtered restaurants when filters change
+  // Fetch favorite IDs once after mount (guests get an empty Set)
   useEffect(() => {
-    async function fetchRestaurants() {
-      setLoading(true)
-      try {
-        const results = await getFilteredRestaurants({
-          search: search.trim() || undefined,
-          cuisines: selectedCuisines.length > 0 ? selectedCuisines : undefined,
-          city: selectedCity,
-          neighborhood: selectedNeighborhood,
-        })
-        setFiltered(results)
-      } catch (error) {
-        const normalized =
-          error instanceof Error
-            ? { message: error.message, stack: error.stack }
-            : (error as Record<string, unknown>)
-        console.error("Error fetching restaurants:", normalized)
-        setFiltered([])
-      } finally {
-        setLoading(false)
-      }
-    }
+    getMyFavoriteRestaurantIds().then(setFavoriteIds).catch(() => setFavoriteIds(new Set()))
+    // Mark loading done once favorites have been resolved (for the edge-case
+    // where the SSR list was empty, e.g. a server error)
+    setLoading(false)
+  }, [])
 
-    fetchRestaurants()
-  }, [search, selectedCuisines, selectedCity, selectedNeighborhood])
+  // Client-side filtering – zero network round-trips on filter changes
+  const filtered = useMemo(() => {
+    return restaurants
+      .map((r) => ({
+        ...r,
+        isFavorite: favoriteIds.has(r.id),
+      }))
+      .filter((r) => {
+        if (selectedCuisines.length > 0) {
+          const matches = r.cuisines.some((c) =>
+            selectedCuisines.some((fc) => fc.toLowerCase() === c.name.toLowerCase()),
+          )
+          if (!matches) return false
+        }
+        if (selectedCity && selectedCity !== "all") {
+          if (r.city !== selectedCity) return false
+        }
+        if (selectedNeighborhood && selectedNeighborhood !== "all") {
+          if (r.neighborhood !== selectedNeighborhood) return false
+        }
+        if (search && search.trim()) {
+          if (!fuzzyMatchAny(search, [r.name, ...r.tags])) return false
+        }
+        return true
+      })
+  }, [restaurants, favoriteIds, search, selectedCuisines, selectedCity, selectedNeighborhood])
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
 
@@ -68,7 +83,7 @@ export function RestaurantGrid({ search, selectedCuisines, selectedCity, selecte
   // Desktop pagination
   const desktopItems = filtered.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+    currentPage * ITEMS_PER_PAGE,
   )
 
   // Mobile progressive loading
@@ -91,7 +106,7 @@ export function RestaurantGrid({ search, selectedCuisines, selectedCity, selecte
           handleLoadMore()
         }
       },
-      { threshold: 0.5 }
+      { threshold: 0.5 },
     )
 
     if (loadMoreRef.current) {
@@ -100,6 +115,27 @@ export function RestaurantGrid({ search, selectedCuisines, selectedCity, selecte
 
     return () => observer.disconnect()
   }, [mobileDisplayCount, filtered.length])
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-semibold text-primary">Restaurants</h3>
+          <span className="text-sm text-muted-foreground">&nbsp;</span>
+        </div>
+        <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
+            <RestaurantCardSkeleton key={i} />
+          ))}
+        </div>
+        <div className="md:hidden grid grid-cols-1 gap-6">
+          {Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
+            <RestaurantCardSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6" ref={gridRef}>
@@ -124,7 +160,7 @@ export function RestaurantGrid({ search, selectedCuisines, selectedCity, selecte
                   key={restaurant.id}
                   id={restaurant.id}
                   name={restaurant.name}
-                  cuisines={restaurant.cuisines.map(c => c.name)}
+                  cuisines={restaurant.cuisines.map((c) => c.name)}
                   image={restaurant.image}
                   city={restaurant.city}
                   neighborhood={restaurant.neighborhood}
@@ -154,7 +190,7 @@ export function RestaurantGrid({ search, selectedCuisines, selectedCity, selecte
                       onClick={() => setCurrentPage(page)}
                       className={cn(
                         "h-9 w-9",
-                        currentPage === page && "bg-primary text-primary-foreground"
+                        currentPage === page && "bg-primary text-primary-foreground",
                       )}
                     >
                       {page}
@@ -182,7 +218,7 @@ export function RestaurantGrid({ search, selectedCuisines, selectedCity, selecte
                   key={restaurant.id}
                   id={restaurant.id}
                   name={restaurant.name}
-                  cuisines={restaurant.cuisines.map(c => c.name)}
+                  cuisines={restaurant.cuisines.map((c) => c.name)}
                   image={restaurant.image}
                   city={restaurant.city}
                   neighborhood={restaurant.neighborhood}

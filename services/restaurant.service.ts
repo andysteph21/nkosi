@@ -358,6 +358,94 @@ export async function getUniqueNeighborhoods(city?: string): Promise<string[]> {
   return [...new Set(filtered.map((r) => r.neighborhood))].sort()
 }
 
+// ---------------------------------------------------------------------------
+// Slim listing helpers (homepage – no plates / categories / schedules)
+// ---------------------------------------------------------------------------
+
+export interface RestaurantListItem {
+  id: number
+  name: string
+  city: string
+  neighborhood: string
+  position: string
+  image: string
+  cuisines: CuisineItem[]
+  tags: string[]
+  deliveryTime: string
+  isFavorite: boolean
+}
+
+type SupabaseLike = ReturnType<typeof getSupabase>
+
+/**
+ * Fetch the minimal set of fields needed to render restaurant cards and
+ * populate filter dropdowns. Skips plates, categories and schedules to keep
+ * the payload small. Works with both the browser client and the server client
+ * (pass the server client via the optional `client` argument so SSR can reuse
+ * the session-aware cookie client).
+ */
+export async function getRestaurantsForListing(
+  client?: SupabaseLike,
+): Promise<RestaurantListItem[]> {
+  const supabase = client ?? getSupabase()
+  const { data, error } = await supabase
+    .from("restaurant")
+    .select("id,name,city,neighborhood,address,cover,restaurant_cuisine(is_main,cuisine(id,name))")
+    .eq("is_visible", true)
+    .eq("is_restricted", false)
+    .order("id")
+  if (error) throw error
+  return (data ?? []).map((r: any) => {
+    const cuisineRows = r.restaurant_cuisine ?? []
+    const cuisines: CuisineItem[] = cuisineRows
+      .filter((row: any) => row.cuisine?.name)
+      .map((row: any) => ({ id: row.cuisine.id, name: row.cuisine.name, isMain: row.is_main }))
+    return {
+      id: r.id,
+      name: r.name,
+      city: r.city,
+      neighborhood: r.neighborhood,
+      position: r.address,
+      image: r.cover?.path ?? "/placeholder.svg",
+      cuisines,
+      tags: cuisines.map((c) => c.name),
+      deliveryTime: "20-40 min",
+      isFavorite: false,
+    }
+  })
+}
+
+/**
+ * Return the set of restaurant IDs that the current user has favorited.
+ * Returns an empty set for unauthenticated visitors (guests).
+ */
+export async function getMyFavoriteRestaurantIds(
+  client?: SupabaseLike,
+): Promise<Set<number>> {
+  const supabase = client ?? getSupabase()
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return new Set()
+    const { data: profile } = await supabase
+      .from("profile")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle()
+    if (!profile) return new Set()
+    const { data: favs } = await supabase
+      .from("favorite")
+      .select("restaurant_id")
+      .eq("profile_id", profile.id)
+    const ids = new Set<number>()
+    if (favs) favs.forEach((f: any) => ids.add(f.restaurant_id))
+    return ids
+  } catch {
+    return new Set()
+  }
+}
+
+// ---------------------------------------------------------------------------
+
 /**
  * Get all restricted restaurants (admin only)
  */

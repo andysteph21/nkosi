@@ -8,6 +8,22 @@ import { toggleFavorite, type ToggleFavoriteResult } from "@/services/favorite.s
 import { incrementRestaurantClick } from "@/services/restaurant.service"
 import { useAuth } from "@/components/providers/auth-provider"
 
+export function RestaurantCardSkeleton() {
+  return (
+    <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-card shadow-sm animate-pulse">
+      <div className="aspect-[4/3] bg-muted" />
+      <div className="p-4 space-y-3">
+        <div className="h-5 bg-muted rounded w-3/4" />
+        <div className="h-4 bg-muted rounded w-1/2" />
+        <div className="space-y-1 pt-1">
+          <div className="h-4 bg-muted rounded w-2/3" />
+          <div className="h-3 bg-muted rounded w-1/2" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 interface RestaurantCardProps {
   id: number
   name: string
