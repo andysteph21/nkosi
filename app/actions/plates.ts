@@ -21,11 +21,13 @@ export async function createPlateAction(input: {
   })
   if (error) return { error: "Impossible d'ajouter le plat." }
   revalidatePath("/my-restaurant")
+  revalidatePath(`/restaurant/${input.restaurantId}`)
   return { success: true }
 }
 
 export async function updatePlateAction(input: {
   plateId: number
+  restaurantId: number
   name?: string
   price?: number
   isVisible?: boolean
@@ -38,13 +40,15 @@ export async function updatePlateAction(input: {
   const { error } = await supabase.from("plate").update(payload).eq("id", input.plateId)
   if (error) return { error: "Impossible de modifier le plat." }
   revalidatePath("/my-restaurant")
+  revalidatePath(`/restaurant/${input.restaurantId}`)
   return { success: true }
 }
 
-export async function deletePlateAction(plateId: number) {
+export async function deletePlateAction(plateId: number, restaurantId: number) {
   const supabase = await createClient()
   const { error } = await supabase.from("plate").delete().eq("id", plateId)
   if (error) return { error: "Impossible de supprimer le plat." }
   revalidatePath("/my-restaurant")
+  revalidatePath(`/restaurant/${restaurantId}`)
   return { success: true }
 }

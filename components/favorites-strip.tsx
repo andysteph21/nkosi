@@ -1,43 +1,25 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
-import { getMyFavorites } from "@/services/favorite.service"
-import { useAuth } from "@/components/providers/auth-provider"
+import type { FavoriteStripItem } from "@/services/favorite.service"
 
-interface FavoriteRestaurant {
-  restaurant_id: number
-  restaurant: {
-    id: number
-    name: string
-    city: string
-    neighborhood: string
-    cover: { path?: string } | null
-  } | null
+interface FavoritesStripProps {
+  initialFavorites: FavoriteStripItem[]
 }
 
-export function FavoritesStrip() {
-  const { profile } = useAuth()
-  const [favorites, setFavorites] = useState<FavoriteRestaurant[]>([])
+export function FavoritesStrip({ initialFavorites }: FavoritesStripProps) {
   const [search, setSearch] = useState("")
-  const isClient = !profile || profile.role === "client"
-
-  useEffect(() => {
-    if (!isClient) return
-    getMyFavorites()
-      .then((rows) => setFavorites(rows as unknown as FavoriteRestaurant[]))
-      .catch(() => setFavorites([]))
-  }, [isClient])
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return favorites
-    return favorites.filter((row) =>
-      row.restaurant?.name?.toLowerCase().includes(search.toLowerCase())
+    if (!search.trim()) return initialFavorites
+    return initialFavorites.filter((row) =>
+      row.restaurant?.name?.toLowerCase().includes(search.toLowerCase()),
     )
-  }, [favorites, search])
+  }, [initialFavorites, search])
 
-  if (!isClient || !favorites.length) return null
+  if (!initialFavorites.length) return null
 
   return (
     <section className="space-y-3">
@@ -73,7 +55,7 @@ export function FavoritesStrip() {
                 </p>
               </div>
             </Link>
-          ) : null
+          ) : null,
         )}
       </div>
     </section>

@@ -1,30 +1,39 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { getRestaurants, restrictRestaurant, unrestrictRestaurant } from '@/services/restaurant.service'
-import type { Restaurant } from '@/services/restaurant.service'
+import { getRestaurantsForAdmin, restrictRestaurant, unrestrictRestaurant } from '@/services/restaurant.service'
+import type { AdminRestaurantRow } from '@/services/restaurant.service'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Lock, Unlock, Search } from 'lucide-react'
 import { getVisibilityRequests, approveVisibilityRequest, refuseVisibilityRequest } from '@/services/visibility-request.service'
 
+function TableSkeleton() {
+  return (
+    <div className="space-y-2 animate-pulse">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="grid grid-cols-4 gap-4 py-3 px-4 border-b">
+          <div className="h-4 bg-muted rounded w-3/4" />
+          <div className="h-4 bg-muted rounded w-1/2" />
+          <div className="h-5 bg-muted rounded-full w-16" />
+          <div className="h-7 bg-muted rounded w-20" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function RestaurantsManagementTab() {
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([])
+  const [restaurants, setRestaurants] = useState<AdminRestaurantRow[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [visibilityRequests, setVisibilityRequests] = useState<any[]>([])
 
-  // Filter restaurants based on search query
   const filteredRestaurants = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return restaurants
-    }
+    if (!searchQuery.trim()) return restaurants
     const query = searchQuery.toLowerCase()
-    return restaurants.filter(restaurant =>
-      restaurant.name.toLowerCase().includes(query)
-    )
+    return restaurants.filter(r => r.name.toLowerCase().includes(query))
   }, [restaurants, searchQuery])
 
   useEffect(() => {
@@ -34,9 +43,11 @@ export function RestaurantsManagementTab() {
   async function fetchRestaurants() {
     try {
       setLoading(true)
-      const data = await getRestaurants()
+      const [data, requests] = await Promise.all([
+        getRestaurantsForAdmin(),
+        getVisibilityRequests(),
+      ])
       setRestaurants(data)
-      const requests = await getVisibilityRequests()
       setVisibilityRequests(requests)
     } catch (error) {
       console.error('Error fetching restaurants:', error)
@@ -53,15 +64,11 @@ export function RestaurantsManagementTab() {
         await restrictRestaurant(id)
       }
       setRestaurants(restaurants.map(r =>
-        r.id === id ? { ...r, restricted: !r.restricted } : r
+        r.id === id ? { ...r, restricted: !r.restricted } : r,
       ))
     } catch (error) {
       console.error('Error toggling restaurant restriction:', error)
     }
-  }
-
-  if (loading) {
-    return <div className="text-center py-12">Chargement...</div>
   }
 
   return (
@@ -89,61 +96,66 @@ export function RestaurantsManagementTab() {
             />
           </div>
 
-          {filteredRestaurants.length === 0 && searchQuery && (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">Aucun restaurant trouvé pour "{searchQuery}"</p>
-            </div>
-          )}
-
-          {filteredRestaurants.length > 0 && (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4 font-medium">Nom</th>
-                  <th className="text-left py-3 px-4 font-medium">Ville</th>
-                  <th className="text-left py-3 px-4 font-medium">Statut</th>
-                  <th className="text-left py-3 px-4 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRestaurants.map(restaurant => (
-                  <tr key={restaurant.id} className="border-b hover:bg-accent transition-colors">
-                    <td className="py-3 px-4">
-                      <div>
-                        <p className="font-medium text-foreground">{restaurant.name}</p>
-                        <p className="text-xs text-muted-foreground">{restaurant.position}</p>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-foreground">{restaurant.city}</td>
-                    <td className="py-3 px-4">
-                      <Badge variant={restaurant.restricted ? 'destructive' : 'default'}>
-                        {restaurant.restricted ? 'Restreint' : 'Actif'}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4">
-                      <Button
-                        size="sm"
-                        variant={restaurant.restricted ? 'outline' : 'destructive'}
-                        onClick={() => handleRestrict(restaurant.id, restaurant.restricted)}
-                        className="gap-2"
-                      >
-                        {restaurant.restricted ? (
-                          <>
-                            <Unlock className="h-3.5 w-3.5" />
-                            Autoriser
-                          </>
-                        ) : (
-                          <>
-                            <Lock className="h-3.5 w-3.5" />
-                            Restreindre
-                          </>
-                        )}
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {loading ? (
+            <TableSkeleton />
+          ) : (
+            <>
+              {filteredRestaurants.length === 0 && searchQuery && (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">Aucun restaurant trouvé pour &quot;{searchQuery}&quot;</p>
+                </div>
+              )}
+              {filteredRestaurants.length > 0 && (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3 px-4 font-medium">Nom</th>
+                      <th className="text-left py-3 px-4 font-medium">Ville</th>
+                      <th className="text-left py-3 px-4 font-medium">Statut</th>
+                      <th className="text-left py-3 px-4 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRestaurants.map(restaurant => (
+                      <tr key={restaurant.id} className="border-b hover:bg-accent transition-colors">
+                        <td className="py-3 px-4">
+                          <div>
+                            <p className="font-medium text-foreground">{restaurant.name}</p>
+                            <p className="text-xs text-muted-foreground">{restaurant.position}</p>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-foreground">{restaurant.city}</td>
+                        <td className="py-3 px-4">
+                          <Badge variant={restaurant.restricted ? 'destructive' : 'default'}>
+                            {restaurant.restricted ? 'Restreint' : 'Actif'}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Button
+                            size="sm"
+                            variant={restaurant.restricted ? 'outline' : 'destructive'}
+                            onClick={() => handleRestrict(restaurant.id, restaurant.restricted)}
+                            className="gap-2"
+                          >
+                            {restaurant.restricted ? (
+                              <>
+                                <Unlock className="h-3.5 w-3.5" />
+                                Autoriser
+                              </>
+                            ) : (
+                              <>
+                                <Lock className="h-3.5 w-3.5" />
+                                Restreindre
+                              </>
+                            )}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

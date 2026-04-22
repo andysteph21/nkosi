@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/client"
 
+type AnySupabaseClient = ReturnType<typeof createClient> | Awaited<ReturnType<typeof import("@/lib/supabase/server").createClient>>
+
 export interface Ad {
   id: number
   image: string
@@ -31,8 +33,8 @@ export async function getAllAds(): Promise<Ad[]> {
   return (data ?? []).map(mapAdRow)
 }
 
-export async function getActiveAds(): Promise<Ad[]> {
-  const supabase = createClient()
+export async function getActiveAds(client?: AnySupabaseClient): Promise<Ad[]> {
+  const supabase = client ?? createClient()
   const now = new Date().toISOString()
   const { data, error } = await supabase
     .from("ad")

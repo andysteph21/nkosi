@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { Heart, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
@@ -37,11 +37,6 @@ interface RestaurantCardProps {
   deliveryTime: string
 }
 
-function getRandomTags(tags: string[], count: number): string[] {
-  if (tags.length <= count) return tags
-  const shuffled = [...tags].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, count)
-}
 
 export function RestaurantCard({
   id,
@@ -59,7 +54,14 @@ export function RestaurantCard({
   const isClient = !profile || profile.role === "client"
   const [favorite, setFavorite] = useState(isFavorite)
   const [pending, setPending] = useState(false)
-  const displayedTags = useMemo(() => getRandomTags(tags, 2), [tags])
+  // Seed with the first 2 tags so server and client render identically during
+  // hydration. Shuffle client-side after mount for visual variety.
+  const [displayedTags, setDisplayedTags] = useState<string[]>(tags.slice(0, 2))
+  useEffect(() => {
+    if (tags.length > 2) {
+      setDisplayedTags([...tags].sort(() => Math.random() - 0.5).slice(0, 2))
+    }
+  }, [tags])
   const displayedCuisines = cuisines.slice(0, 3)
 
   async function handleFavoriteClick(e: React.MouseEvent) {

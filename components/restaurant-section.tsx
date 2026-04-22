@@ -11,32 +11,40 @@ import type { RestaurantListItem } from "@/services/restaurant.service"
 
 interface RestaurantSectionProps {
   initialRestaurants: RestaurantListItem[]
+  /** Pre-sorted, deduplicated cuisine names — computed server-side to prevent hydration mismatches. */
+  initialCuisines: string[]
+  /** Pre-sorted, deduplicated city names — computed server-side. */
+  initialCities: string[]
+  /** Pre-sorted, deduplicated neighborhood names for all cities — computed server-side. */
+  initialNeighborhoods: string[]
 }
 
-export function RestaurantSection({ initialRestaurants }: RestaurantSectionProps) {
+export function RestaurantSection({
+  initialRestaurants,
+  initialCuisines,
+  initialCities,
+  initialNeighborhoods,
+}: RestaurantSectionProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCuisines, setSelectedCuisines] = useState<string[]>([])
   const [selectedCity, setSelectedCity] = useState("all")
   const [selectedNeighborhood, setSelectedNeighborhood] = useState("all")
 
-  // Derive filter options directly from the data – zero extra fetches
-  const uniqueCuisines = useMemo(
-    () => [...new Set(initialRestaurants.flatMap((r) => r.cuisines.map((c) => c.name)))].sort(),
-    [initialRestaurants],
-  )
+  // cuisines and cities come pre-sorted from the server — no re-derivation needed.
+  const uniqueCuisines = initialCuisines
+  const uniqueCities = initialCities
 
-  const uniqueCities = useMemo(
-    () => [...new Set(initialRestaurants.map((r) => r.city))].sort(),
-    [initialRestaurants],
-  )
-
+  // Neighborhoods depend on the user's city selection, so they must be derived
+  // client-side. Seed from initialNeighborhoods (all cities) until the user picks one.
   const uniqueNeighborhoods = useMemo(() => {
-    const source =
-      selectedCity === "all"
-        ? initialRestaurants
-        : initialRestaurants.filter((r) => r.city === selectedCity)
-    return [...new Set(source.map((r) => r.neighborhood))].sort()
-  }, [initialRestaurants, selectedCity])
+    if (selectedCity === "all") return initialNeighborhoods
+    const filtered = [...new Set(
+      initialRestaurants
+        .filter((r) => r.city === selectedCity)
+        .map((r) => r.neighborhood),
+    )]
+    return [...filtered].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+  }, [initialRestaurants, initialNeighborhoods, selectedCity])
 
   const cuisineOptions = uniqueCuisines.map((c) => ({ value: c, label: c }))
 

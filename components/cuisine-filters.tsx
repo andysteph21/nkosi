@@ -37,20 +37,27 @@ export function CuisineFilters({ cuisines, selectedCuisines, onToggle }: Cuisine
   const dropdownRef = useRef<HTMLDivElement>(null)
   const maxVisible = useMaxVisible()
 
+  // Start with the sorted order (same on server and client) so hydration is
+  // consistent. After mount, shuffle client-side so the pill strip looks varied.
+  const [shuffled, setShuffled] = useState<string[]>(cuisines)
+
+  useEffect(() => {
+    setShuffled([...cuisines].sort(() => Math.random() - 0.5))
+  }, [cuisines])
+
   const { visible, overflow } = useMemo(() => {
-    const shuffled = [...cuisines].sort(() => Math.random() - 0.5)
     const vis = shuffled.slice(0, maxVisible)
     const ovf = shuffled.slice(maxVisible)
-    
+
     // Ensure selected cuisines are visible when possible
     const selectedInOverflow = ovf.filter((c) =>
-      selectedCuisines.some((s) => s.toLowerCase() === c.toLowerCase())
+      selectedCuisines.some((s) => s.toLowerCase() === c.toLowerCase()),
     )
-    
+
     for (const selected of selectedInOverflow) {
       if (vis.length < maxVisible) break
-      const firstUnselected = vis.findIndex((c) =>
-        !selectedCuisines.some((s) => s.toLowerCase() === c.toLowerCase())
+      const firstUnselected = vis.findIndex(
+        (c) => !selectedCuisines.some((s) => s.toLowerCase() === c.toLowerCase()),
       )
       if (firstUnselected !== -1) {
         const temp = vis[firstUnselected]
@@ -59,10 +66,10 @@ export function CuisineFilters({ cuisines, selectedCuisines, onToggle }: Cuisine
         ovf[selectedIndex] = temp
       }
     }
-    
+
     return { visible: vis, overflow: ovf }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cuisines, maxVisible, selectedCuisines.length])
+  }, [shuffled, maxVisible, selectedCuisines.length])
 
   const isOverflowSelected = overflow.some(
     (c) => selectedCuisines.some((s) => s.toLowerCase() === c.toLowerCase())

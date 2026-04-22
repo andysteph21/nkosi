@@ -226,6 +226,14 @@ export async function getRestaurantById(id: number): Promise<Restaurant | null> 
 }
 
 /**
+ * Public-facing restaurant detail fetch using the anonymous client.
+ * No cookies required — safe to use from ISR/statically rendered pages.
+ */
+export function getRestaurantPage(id: number): Promise<Restaurant | null> {
+  return getRestaurantByIdWithClient(getSupabase(), id)
+}
+
+/**
  * Get a single restaurant using a caller-provided Supabase client.
  * Used by server components that need the user's session for RLS
  * (e.g. admins previewing restricted restaurants).
@@ -234,21 +242,32 @@ export async function getRestaurantByIdWithClient(
   supabase: ReturnType<typeof getSupabase>,
   id: number,
 ): Promise<Restaurant | null> {
-  const { data: restaurant, error } = await supabase
-    .from("restaurant")
-    .select(
-      "id,name,description,city,neighborhood,address,cover,logo,is_restricted,is_visible,restaurant_schedule(day_of_week,is_closed,open_time,close_time),restaurant_cuisine(is_main,cuisine(id,name))"
-    )
-    .eq("id", id)
-    .maybeSingle()
+  // All three queries are independent — fire them all at once.
+  const [restaurantResult, platesResult, catResult] = await Promise.all([
+    supabase
+      .from("restaurant")
+      .select(
+        "id,name,description,city,neighborhood,address,cover,logo,is_restricted,is_visible,restaurant_schedule(day_of_week,is_closed,open_time,close_time),restaurant_cuisine(is_main,cuisine(id,name))"
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    supabase
+      .from("plate")
+      .select("id,name,price,image,video,is_visible,category_id,sort_order")
+      .eq("restaurant_id", id)
+      .order("sort_order"),
+    supabase
+      .from("category")
+      .select("id,name,sort_order")
+      .eq("restaurant_id", id)
+      .order("sort_order"),
+  ])
 
-  if (error || !restaurant) return null
+  const restaurant = restaurantResult.data
+  if (restaurantResult.error || !restaurant) return null
 
-  const { data: plates } = await supabase
-    .from("plate")
-    .select("id,name,price,image,video,is_visible,category_id,sort_order")
-    .eq("restaurant_id", id)
-    .order("sort_order")
+  // Fire-and-forget analytics — no need to block the render on a write.
+  supabase.rpc("increment_restaurant_views", { p_restaurant_id: id }).then(() => {})
 
   const cuisineRows = restaurant.restaurant_cuisine ?? []
   const cuisines: CuisineItem[] = (cuisineRows as any[])
@@ -267,7 +286,7 @@ export async function getRestaurantByIdWithClient(
     }
   })
 
-  const dishes = (plates ?? []).map((p: any) => ({
+  const dishes = (platesResult.data ?? []).map((p: any) => ({
     id: p.id,
     name: p.name,
     price: p.price,
@@ -279,35 +298,11 @@ export async function getRestaurantByIdWithClient(
     sortOrder: p.sort_order ?? 0,
   }))
 
-  const { data: catData } = await supabase
-    .from("category")
-    .select("id,name,sort_order")
-    .eq("restaurant_id", id)
-    .order("sort_order")
-  const categories: Category[] = (catData ?? []).map((c: any) => ({ id: c.id, name: c.name, sortOrder: c.sort_order }))
-
-  await supabase.rpc("increment_restaurant_views", { p_restaurant_id: id })
-
-  let isFav = false
-  try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      const { data: profile } = await supabase
-        .from("profile")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle()
-      if (profile) {
-        const { data: fav } = await supabase
-          .from("favorite")
-          .select("profile_id")
-          .eq("profile_id", profile.id)
-          .eq("restaurant_id", id)
-          .maybeSingle()
-        isFav = !!fav
-      }
-    }
-  } catch { /* unauthenticated */ }
+  const categories: Category[] = (catResult.data ?? []).map((c: any) => ({
+    id: c.id,
+    name: c.name,
+    sortOrder: c.sort_order,
+  }))
 
   return {
     id: restaurant.id,
@@ -319,7 +314,7 @@ export async function getRestaurantByIdWithClient(
     neighborhood: restaurant.neighborhood,
     position: restaurant.address,
     tags: cuisines.map((c) => c.name),
-    isFavorite: isFav,
+    isFavorite: false,
     deliveryTime: "20-40 min",
     about: restaurant.description ?? "",
     hours,
@@ -442,6 +437,142 @@ export async function getMyFavoriteRestaurantIds(
   } catch {
     return new Set()
   }
+}
+
+// ---------------------------------------------------------------------------
+// Owner-scoped helpers (no full-platform scans)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch only the dishes and categories for a single restaurant.
+ * Used by the owner's Menu tab — replaces the full getRestaurantById() call.
+ */
+export async function getMyRestaurantMenu(
+  restaurantId: number,
+  client?: SupabaseLike,
+): Promise<{ dishes: Dish[]; categories: Category[] }> {
+  const supabase = client ?? getSupabase()
+  const [platesResult, catsResult] = await Promise.all([
+    supabase
+      .from("plate")
+      .select("id,name,price,image,video,is_visible,category_id,sort_order")
+      .eq("restaurant_id", restaurantId)
+      .order("sort_order"),
+    supabase
+      .from("category")
+      .select("id,name,sort_order")
+      .eq("restaurant_id", restaurantId)
+      .order("sort_order"),
+  ])
+  const dishes: Dish[] = (platesResult.data ?? []).map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    currency: "F CFA",
+    image: p.image?.path ?? "/placeholder.svg",
+    video: p.video?.path ?? "",
+    available: p.is_visible,
+    categoryId: p.category_id ?? null,
+    sortOrder: p.sort_order ?? 0,
+  }))
+  const categories: Category[] = (catsResult.data ?? []).map((c: any) => ({
+    id: c.id,
+    name: c.name,
+    sortOrder: c.sort_order,
+  }))
+  return { dishes, categories }
+}
+
+/**
+ * Fetch a single restaurant's info for the owner's Info/Edit form.
+ * Includes schedule and cuisines but NOT plates, categories or favorites.
+ */
+export async function getMyRestaurantInfo(
+  restaurantId: number,
+  client?: SupabaseLike,
+): Promise<Restaurant | null> {
+  const supabase = client ?? getSupabase()
+  const { data, error } = await supabase
+    .from("restaurant")
+    .select(
+      "id,name,description,city,neighborhood,address,cover,logo,is_restricted,is_visible,restaurant_schedule(day_of_week,is_closed,open_time,close_time),restaurant_cuisine(is_main,cuisine(id,name))",
+    )
+    .eq("id", restaurantId)
+    .maybeSingle()
+  if (error || !data) return null
+
+  const cuisineRows = (data.restaurant_cuisine ?? []) as any[]
+  const cuisines: CuisineItem[] = cuisineRows
+    .filter((row: any) => row.cuisine?.name)
+    .map((row: any) => ({ id: row.cuisine.id, name: row.cuisine.name, isMain: row.is_main }))
+
+  const dayMap = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+  const hours: DayHours[] = dayMap.map((dayKey) => {
+    const row = (data.restaurant_schedule as any[]).find((s: any) => s.day_of_week === dayKey)
+    if (!row || row.is_closed) return { day: dayLabel(dayKey), hours: "Fermé", closed: true }
+    return {
+      day: dayLabel(dayKey),
+      hours: `${row.open_time?.slice(0, 5) ?? "00:00"} - ${row.close_time?.slice(0, 5) ?? "00:00"}`,
+    }
+  })
+
+  return {
+    id: data.id,
+    name: data.name,
+    cuisines,
+    image: (data as any).cover?.path ?? "/placeholder.svg",
+    logo: (data as any).logo?.path ?? "",
+    city: data.city,
+    neighborhood: data.neighborhood,
+    position: data.address,
+    tags: cuisines.map((c) => c.name),
+    isFavorite: false,
+    deliveryTime: "20-40 min",
+    about: data.description ?? "",
+    hours,
+    dishes: [],
+    categories: [],
+    restricted: data.is_restricted,
+    visible: data.is_visible,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Admin-scoped helpers
+// ---------------------------------------------------------------------------
+
+export interface AdminRestaurantRow {
+  id: number
+  name: string
+  city: string
+  neighborhood: string
+  position: string
+  restricted: boolean
+  visible: boolean
+}
+
+/**
+ * Slim restaurant list for the admin dashboard – no plates, schedules or
+ * categories; only the fields needed to render and manage the table.
+ */
+export async function getRestaurantsForAdmin(
+  client?: SupabaseLike,
+): Promise<AdminRestaurantRow[]> {
+  const supabase = client ?? getSupabase()
+  const { data, error } = await supabase
+    .from("restaurant")
+    .select("id,name,city,neighborhood,address,is_restricted,is_visible")
+    .order("id")
+  if (error) throw error
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    name: r.name,
+    city: r.city,
+    neighborhood: r.neighborhood,
+    position: r.address,
+    restricted: r.is_restricted,
+    visible: r.is_visible,
+  }))
 }
 
 // ---------------------------------------------------------------------------

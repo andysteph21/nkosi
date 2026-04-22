@@ -54,6 +54,7 @@ export async function toggleRestaurantVisibilityAction(restaurantId: number, isV
   await supabase.from("restaurant").update({ is_visible: isVisible }).eq("id", restaurantId)
   revalidatePath("/my-restaurant")
   revalidatePath("/")
+  revalidatePath(`/restaurant/${restaurantId}`)
   return { success: true }
 }
 

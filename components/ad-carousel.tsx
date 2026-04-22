@@ -10,14 +10,23 @@ import type { Ad } from "@/services/ad.service"
 
 const INTERVAL_MS = 5000
 
-export function AdCarousel() {
-  const [ads, setAds] = React.useState<Ad[]>([])
+interface AdCarouselProps {
+  initialAds?: Ad[]
+}
+
+export function AdCarousel({ initialAds }: AdCarouselProps = {}) {
+  // Seed with the unshuffled SSR ads so server and client render identically.
+  // Shuffle client-side after mount for visual variety.
+  const [ads, setAds] = React.useState<Ad[]>(initialAds ?? [])
   const [currentIndex, setCurrentIndex] = React.useState(0)
   const [progress, setProgress] = React.useState(0)
-  const [loading, setLoading] = React.useState(true)
+  const [loading, setLoading] = React.useState(!initialAds)
 
-  // Fetch active ads on mount
   React.useEffect(() => {
+    if (initialAds) {
+      setAds([...initialAds].sort(() => Math.random() - 0.5))
+      return
+    }
     async function fetchAds() {
       try {
         const activeAds = await getActiveAds()

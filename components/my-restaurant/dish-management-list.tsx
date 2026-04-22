@@ -2,11 +2,10 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import {
-  getRestaurantById,
+  getMyRestaurantMenu,
   addDish,
   removeDish,
   updateDish,
-  getCategories,
   createCategory,
   renameCategory,
   deleteCategory,
@@ -152,12 +151,9 @@ export function DishManagementList({ restaurantId }: DishManagementListProps) {
   async function fetchData() {
     try {
       setLoading(true)
-      const [restaurant, cats] = await Promise.all([
-        getRestaurantById(restaurantId),
-        getCategories(restaurantId),
-      ])
-      if (restaurant) setDishes(restaurant.dishes)
-      setCategories(cats)
+      const { dishes: loadedDishes, categories: loadedCats } = await getMyRestaurantMenu(restaurantId)
+      setDishes(loadedDishes)
+      setCategories(loadedCats)
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
@@ -282,7 +278,25 @@ export function DishManagementList({ restaurantId }: DishManagementListProps) {
 
   // ---------------------------------------------------------------------------
 
-  if (loading) return <div className="text-center py-12 text-muted-foreground">Chargement...</div>
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="rounded-xl border overflow-hidden bg-card">
+            <div className="aspect-video bg-muted" />
+            <div className="p-3 space-y-2">
+              <div className="h-4 bg-muted rounded w-2/3" />
+              <div className="h-4 bg-muted rounded w-1/3" />
+              <div className="flex gap-1 mt-2">
+                <div className="h-7 bg-muted rounded w-16" />
+                <div className="h-7 w-7 bg-muted rounded ml-auto" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   const uncategorized = grouped.get(null) ?? []
 

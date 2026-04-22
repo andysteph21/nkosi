@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { getRestaurantById, updateRestaurantData, getAvailableCuisines, updateRestaurantCuisines } from '@/services/restaurant.service'
+import { getMyRestaurantInfo, updateRestaurantData, getAvailableCuisines, updateRestaurantCuisines } from '@/services/restaurant.service'
 import type { Restaurant } from '@/services/restaurant.service'
 import { CuisineSelector } from '@/components/cuisine-selector'
 import { Button } from '@/components/ui/button'
@@ -91,7 +91,7 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
     try {
       setLoading(true)
       const [data, allCuisines] = await Promise.all([
-        getRestaurantById(restaurantId),
+        getMyRestaurantInfo(restaurantId),
         getAvailableCuisines(),
       ])
       setAvailableCuisines(allCuisines)
@@ -206,7 +206,20 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
   }
 
   if (loading) {
-    return <div className="text-center py-12">Chargement...</div>
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="rounded-xl border bg-card p-6 space-y-4">
+          <div className="h-5 bg-muted rounded w-48" />
+          <div className="h-10 bg-muted rounded" />
+          <div className="h-10 bg-muted rounded" />
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="h-10 bg-muted rounded" />
+            <div className="h-10 bg-muted rounded" />
+          </div>
+          <div className="h-24 bg-muted rounded" />
+        </div>
+      </div>
+    )
   }
 
   if (!restaurant) {
