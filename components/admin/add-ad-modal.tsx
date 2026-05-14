@@ -13,6 +13,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Upload, X } from 'lucide-react'
+import { uploadAdImage } from '@/lib/upload'
+import { resolveMediaUrl } from '@/lib/media'
 
 interface AddAdModalProps {
   open: boolean
@@ -25,9 +27,16 @@ export function AddAdModal({ open, onOpenChange, onSaved, ad }: AddAdModalProps)
   const isEdit = Boolean(ad)
 
   const [loading, setLoading] = useState(false)
+  // Existing remote URL when editing, OR a local objectURL when a new file is
+  // staged but not yet uploaded.
   const [imagePreview, setImagePreview] = useState<string>('')
+  // The pending File. We only upload at submit time so cancelling the modal
+  // never produces orphan objects in the bucket.
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
+    // Holds the existing remote URL when editing. Cleared when a new file is staged.
     image: '',
     alt: '',
     link: '',
@@ -36,6 +45,13 @@ export function AddAdModal({ open, onOpenChange, onSaved, ad }: AddAdModalProps)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const today = new Date().toISOString().split('T')[0]
+
+  // Revoke previous object URLs to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+    }
+  }, [imagePreview])
 
   // Re-initialise form whenever the modal opens or the target ad changes
   useEffect(() => {
@@ -52,49 +68,57 @@ export function AddAdModal({ open, onOpenChange, onSaved, ad }: AddAdModalProps)
         setFormData({ image: '', alt: '', link: '', endDate: '' })
         setImagePreview('')
       }
+      setPendingFile(null)
+      setUploadError(null)
     }
   }, [open, ad])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!formData.image || !formData.alt) {
+    if ((!formData.image && !pendingFile) || !formData.alt) {
       alert('Veuillez remplir tous les champs obligatoires')
       return
     }
 
     try {
       setLoading(true)
+      setUploadError(null)
       const endDate = formData.endDate ? new Date(formData.endDate) : null
+
+      // Upload the new file (if any) just before persisting.
+      let imageUrl = formData.image
+      if (pendingFile) {
+        imageUrl = await uploadAdImage(pendingFile)
+      }
 
       if (isEdit && ad) {
         await updateAd(ad.id, {
-          image: formData.image,
+          image: imageUrl,
           alt: formData.alt,
           link: formData.link || undefined,
           endDate,
         })
       } else {
-        await createAd(formData.image, formData.alt, formData.link || undefined, endDate)
+        await createAd(imageUrl, formData.alt, formData.link || undefined, endDate)
       }
 
       onOpenChange(false)
       onSaved()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving ad:', error)
-      alert(isEdit ? 'Erreur lors de la modification de la publicité' : 'Erreur lors de la création de la publicité')
+      setUploadError(error?.message ?? (isEdit ? 'Erreur lors de la modification de la publicité' : 'Erreur lors de la création de la publicité'))
     } finally {
       setLoading(false)
     }
   }
 
   function loadFile(file: File) {
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      const result = reader.result as string
-      setImagePreview(result)
-      setFormData(prev => ({ ...prev, image: result }))
-    }
-    reader.readAsDataURL(file)
+    if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+    const objectUrl = URL.createObjectURL(file)
+    setImagePreview(objectUrl)
+    setPendingFile(file)
+    // Clear the existing remote URL so submit knows we need to upload.
+    setFormData(prev => ({ ...prev, image: '' }))
   }
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -125,7 +149,9 @@ export function AddAdModal({ open, onOpenChange, onSaved, ad }: AddAdModalProps)
   }
 
   function clearImage() {
+    if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
     setImagePreview('')
+    setPendingFile(null)
     setFormData(prev => ({ ...prev, image: '' }))
     if (inputRef.current) inputRef.current.value = ''
   }
@@ -164,7 +190,7 @@ export function AddAdModal({ open, onOpenChange, onSaved, ad }: AddAdModalProps)
               />
               {imagePreview ? (
                 <div className="relative aspect-video mb-2">
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded" />
+                  <img src={resolveMediaUrl(imagePreview)} alt="Preview" className="w-full h-full object-cover rounded" />
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); clearImage() }}
@@ -223,13 +249,17 @@ export function AddAdModal({ open, onOpenChange, onSaved, ad }: AddAdModalProps)
             />
           </div>
 
+          {uploadError && (
+            <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">{uploadError}</p>
+          )}
+
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Annuler
             </Button>
             <Button type="submit" disabled={loading}>
               {loading
-                ? isEdit ? 'Modification...' : 'Création...'
+                ? (pendingFile ? 'Envoi...' : (isEdit ? 'Modification...' : 'Création...'))
                 : isEdit ? 'Enregistrer les modifications' : 'Créer la publicité'}
             </Button>
           </div>

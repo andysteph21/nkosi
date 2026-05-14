@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, Heart, MapPin, Clock } from "lucide-react"
+import { ArrowLeft, Heart, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import type { Restaurant } from "@/services/restaurant.service"
 import { getIsFavorite, toggleFavorite, type ToggleFavoriteResult } from "@/services/favorite.service"
 import { useAuth } from "@/components/providers/auth-provider"
+import { resolveMediaUrl } from "@/lib/media"
 
 interface RestaurantHeroProps {
   restaurant: Restaurant
@@ -47,10 +48,10 @@ export function RestaurantHero({ restaurant }: RestaurantHeroProps) {
       {/* Hero Image */}
       <div className="relative aspect-[16/7] min-h-[240px] md:min-h-[320px]">
         <img
-          src={restaurant.image || "/placeholder.svg"}
+          src={resolveMediaUrl(restaurant.image)}
           alt={restaurant.name}
+          decoding="async"
           className="absolute inset-0 h-full w-full object-cover"
-          crossOrigin="anonymous"
         />
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-foreground/30 to-transparent" />
@@ -86,10 +87,11 @@ export function RestaurantHero({ restaurant }: RestaurantHeroProps) {
           <div className="flex items-end gap-4">
             {restaurant.logo ? (
               <img
-                src={restaurant.logo}
+                src={resolveMediaUrl(restaurant.logo)}
                 alt={`Logo ${restaurant.name}`}
+                loading="lazy"
+                decoding="async"
                 className="h-16 w-16 shrink-0 rounded-2xl bg-white backdrop-blur-sm object-contain"
-                crossOrigin="anonymous"
               />
             ) : (
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-card/90 backdrop-blur-sm text-xl font-bold text-primary">
@@ -104,10 +106,6 @@ export function RestaurantHero({ restaurant }: RestaurantHeroProps) {
                 <span className="flex items-center gap-1.5 text-sm text-primary-foreground/80">
                   <MapPin className="h-4 w-4 shrink-0" />
                   {restaurant.neighborhood}, {restaurant.city}
-                </span>
-                <span className="flex items-center gap-1.5 text-sm text-primary-foreground/80">
-                  <Clock className="h-4 w-4 shrink-0" />
-                  {restaurant.deliveryTime}
                 </span>
               </div>
             </div>

@@ -1,12 +1,5 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  output: "standalone",
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  images: {
-    unoptimized: true,
-  },
-}
 
-export default nextConfig
+// Derive the Supabase Storage hostname from the public env var so that
+// next/image trusts the bucket URLs we serve. Falls back to the known
+// production hostname to ke

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { getActiveAds } from "@/services/ad.service"
 import type { Ad } from "@/services/ad.service"
+import { resolveMediaUrl } from "@/lib/media"
 
 const INTERVAL_MS = 5000
 
@@ -108,9 +109,14 @@ export function AdCarousel({ initialAds }: AdCarouselProps = {}) {
             )}
           >
             {ad.link ? (
-              <a href={ad.link} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+              <a
+                href={ad.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative block w-full h-full"
+              >
                 <Image
-                  src={ad.image || "/placeholder.svg"}
+                  src={resolveMediaUrl(ad.image)}
                   alt={ad.alt}
                   fill
                   className="object-contain object-center"
@@ -119,7 +125,7 @@ export function AdCarousel({ initialAds }: AdCarouselProps = {}) {
               </a>
             ) : (
               <Image
-                src={ad.image || "/placeholder.svg"}
+                src={resolveMediaUrl(ad.image)}
                 alt={ad.alt}
                 fill
                 className="object-contain object-center"

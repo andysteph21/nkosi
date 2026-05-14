@@ -13,6 +13,8 @@ import {
 } from '@/components/ui/dialog'
 import { Dropzone } from '@/components/ui/dropzone'
 import { Video, X, Plus } from 'lucide-react'
+import { uploadPlateImage, uploadPlateVideo } from '@/lib/upload'
+import { useAuth } from '@/components/providers/auth-provider'
 
 interface AddDishModalProps {
   open: boolean
@@ -21,28 +23,10 @@ interface AddDishModalProps {
   categories: Category[]
   onCreateCategory: (name: string) => Promise<Category>
   defaultCategoryId?: number | null
+  restaurantId: number
 }
 
 const VIDEO_MAX_SECONDS = 10
-const IMAGE_MAX_PX = 800
-const IMAGE_QUALITY = 0.85
-
-function resizeImage(dataUrl: string): Promise<string> {
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.onload = () => {
-      const scale = Math.min(1, IMAGE_MAX_PX / Math.max(img.width, img.height))
-      const w = Math.round(img.width * scale)
-      const h = Math.round(img.height * scale)
-      const canvas = document.createElement('canvas')
-      canvas.width = w
-      canvas.height = h
-      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
-      resolve(canvas.toDataURL('image/jpeg', IMAGE_QUALITY))
-    }
-    img.src = dataUrl
-  })
-}
 
 export function AddDishModal({
   open,
@@ -51,11 +35,16 @@ export function AddDishModal({
   categories,
   onCreateCategory,
   defaultCategoryId,
+  restaurantId,
 }: AddDishModalProps) {
+  const { profile } = useAuth()
   const [loading, setLoading] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  // Object URLs for live previews. We only upload the underlying File at submit.
   const [imagePreview, setImagePreview] = useState('')
   const [videoPreview, setVideoPreview] = useState('')
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [videoFile, setVideoFile] = useState<File | null>(null)
   const [videoError, setVideoError] = useState<string | null>(null)
 
   // Category state
@@ -69,8 +58,6 @@ export function AddDishModal({
   const [formData, setFormData] = useState({
     name: '',
     price: 0,
-    image: '',
-    video: '',
     available: true,
   })
 
@@ -78,10 +65,22 @@ export function AddDishModal({
   useEffect(() => { setLocalCategories(categories) }, [categories])
   useEffect(() => { setCategoryId(defaultCategoryId ?? null) }, [defaultCategoryId])
 
+  // Revoke object URLs to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+      if (videoPreview.startsWith('blob:')) URL.revokeObjectURL(videoPreview)
+    }
+  }, [imagePreview, videoPreview])
+
   function reset() {
-    setFormData({ name: '', price: 0, image: '', video: '', available: true })
+    setFormData({ name: '', price: 0, available: true })
+    if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+    if (videoPreview.startsWith('blob:')) URL.revokeObjectURL(videoPreview)
     setImagePreview('')
     setVideoPreview('')
+    setImageFile(null)
+    setVideoFile(null)
     setVideoError(null)
     setSubmitError(null)
     setCategoryId(defaultCategoryId ?? null)
@@ -109,18 +108,29 @@ export function AddDishModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!formData.name || !formData.image || formData.price <= 0) {
+    if (!formData.name || !imageFile || formData.price <= 0) {
       setSubmitError('Veuillez remplir tous les champs obligatoires (nom, image, prix)')
+      return
+    }
+    if (!profile) {
+      setSubmitError('Session invalide. Veuillez vous reconnecter.')
       return
     }
     try {
       setLoading(true)
       setSubmitError(null)
+
+      // Upload image + (optional) video just before persisting.
+      const imageUrl = await uploadPlateImage(profile.id, restaurantId, imageFile)
+      const videoUrl = videoFile
+        ? await uploadPlateVideo(profile.id, restaurantId, videoFile)
+        : ''
+
       await onAdded({
         name: formData.name,
         price: formData.price,
-        image: formData.image,
-        video: formData.video,
+        image: imageUrl,
+        video: videoUrl,
         available: formData.available,
         currency: 'FCFA',
         categoryId,
@@ -135,13 +145,9 @@ export function AddDishModal({
   }
 
   function handleImageFile(file: File) {
-    const reader = new FileReader()
-    reader.onloadend = async () => {
-      const resized = await resizeImage(reader.result as string)
-      setImagePreview(resized)
-      setFormData(prev => ({ ...prev, image: resized }))
-    }
-    reader.readAsDataURL(file)
+    if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+    setImagePreview(URL.createObjectURL(file))
+    setImageFile(file)
   }
 
   function handleVideoFile(file: File) {
@@ -151,18 +157,15 @@ export function AddDishModal({
     vid.preload = 'metadata'
     vid.src = objectUrl
     vid.onloadedmetadata = () => {
-      URL.revokeObjectURL(objectUrl)
       if (vid.duration > VIDEO_MAX_SECONDS) {
+        URL.revokeObjectURL(objectUrl)
         setVideoError(`La vidéo dépasse ${VIDEO_MAX_SECONDS} secondes. Veuillez en choisir une plus courte.`)
         return
       }
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        const result = reader.result as string
-        setVideoPreview(result)
-        setFormData(prev => ({ ...prev, video: result }))
-      }
-      reader.readAsDataURL(file)
+      // Keep the same objectUrl for the preview to avoid a second read.
+      if (videoPreview.startsWith('blob:')) URL.revokeObjectURL(videoPreview)
+      setVideoPreview(objectUrl)
+      setVideoFile(file)
     }
     vid.onerror = () => {
       URL.revokeObjectURL(objectUrl)
@@ -239,7 +242,11 @@ export function AddDishModal({
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setImagePreview(''); setFormData(prev => ({ ...prev, image: '' })) }}
+                  onClick={() => {
+                    if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+                    setImagePreview('')
+                    setImageFile(null)
+                  }}
                   className="absolute top-2 right-2 rounded-full bg-background/80 p-1 hover:bg-background transition-colors"
                 >
                   <X className="h-4 w-4" />
@@ -267,7 +274,12 @@ export function AddDishModal({
                 <video src={videoPreview} controls className="w-full rounded-lg border-2 border-green-500" />
                 <button
                   type="button"
-                  onClick={() => { setVideoPreview(''); setVideoError(null); setFormData(prev => ({ ...prev, video: '' })) }}
+                  onClick={() => {
+                    if (videoPreview.startsWith('blob:')) URL.revokeObjectURL(videoPreview)
+                    setVideoPreview('')
+                    setVideoFile(null)
+                    setVideoError(null)
+                  }}
                   className="absolute top-2 right-2 rounded-full bg-background/80 p-1 hover:bg-background transition-colors"
                 >
                   <X className="h-4 w-4" />
@@ -341,7 +353,7 @@ export function AddDishModal({
               Annuler
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Ajout...' : 'Ajouter le plat'}
+              {loading ? 'Envoi en cours…' : 'Ajouter le plat'}
             </Button>
           </div>
         </form>

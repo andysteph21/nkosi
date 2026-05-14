@@ -21,13 +21,16 @@ import { ImageCropModal } from '@/components/ui/image-crop-modal'
 import { ScheduleEditor, dayHoursToEntry, entryToDayHours, isEntryValid } from '@/components/my-restaurant/schedule-editor'
 import type { ScheduleEntry } from '@/components/my-restaurant/schedule-editor'
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
+import { resolveMediaUrl } from '@/lib/media'
+import { dataUrlToFile, uploadRestaurantImage } from '@/lib/upload'
+import { useAuth } from '@/components/providers/auth-provider'
 
 function LogoPreview({ src, isNew }: { src: string; isNew: boolean }) {
   return (
     <div className="flex flex-col gap-1 min-w-[96px]">
       <p className="text-xs text-muted-foreground">{isNew ? 'Nouveau logo' : 'Logo actuel'}</p>
       <div className="w-24 h-24 rounded-lg border border-input overflow-hidden bg-white">
-        <img src={src} alt="Logo" className="w-full h-full object-contain" />
+        <img src={resolveMediaUrl(src)} alt="Logo" className="w-full h-full object-contain" />
       </div>
     </div>
   )
@@ -38,6 +41,7 @@ interface RestaurantInfoFormProps {
 }
 
 export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
+  const { profile } = useAuth()
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -52,8 +56,6 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
     position: '',
     city: '',
     neighborhood: '',
-    image: '',
-    logo: '',
     schedule: [] as ScheduleEntry[],
   })
 
@@ -103,8 +105,6 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
           position: data.position,
           city: data.city,
           neighborhood: data.neighborhood,
-          image: data.image,
-          logo: data.logo,
           schedule: data.hours.map(dayHoursToEntry),
         })
         const main = data.cuisines.find((c) => c.isMain)
@@ -138,12 +138,14 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
 
   const handleCropConfirm = (croppedDataUrl: string) => {
     const { type } = cropModal
+    // Store the cropped data URL only in *preview* state. We hold off uploading
+    // to Storage until the user actually clicks Submit, so that cancelling the
+    // form (or hitting an unrelated validation error) never produces orphan
+    // objects in the bucket.
     if (type === 'logo') {
       setLogoPreview(croppedDataUrl)
-      setFormData(prev => ({ ...prev, logo: croppedDataUrl }))
     } else {
       setCoverPreview(croppedDataUrl)
-      setFormData(prev => ({ ...prev, image: croppedDataUrl }))
     }
     handleFormChange()
     setCropModal({ open: false, src: '', type: 'logo' })
@@ -159,10 +161,29 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
     try {
       setSaving(true)
       setMessage(null)
-      
+
       if (!validateSchedule()) {
         setSaving(false)
         return
+      }
+
+      if (!profile) {
+        setMessage({ type: 'error', text: 'Session invalide. Veuillez vous reconnecter.' })
+        setSaving(false)
+        return
+      }
+
+      // The crop modal hands us base64 data URLs. Upload them to Storage now
+      // (just before persisting) so the DB only ever sees https URLs.
+      let logoUrl: string | undefined
+      let coverUrl: string | undefined
+      if (logoPreview) {
+        const logoFile = dataUrlToFile(logoPreview, `logo-${restaurantId}.jpg`)
+        logoUrl = await uploadRestaurantImage(profile.id, restaurantId, 'logo', logoFile)
+      }
+      if (coverPreview) {
+        const coverFile = dataUrlToFile(coverPreview, `cover-${restaurantId}.jpg`)
+        coverUrl = await uploadRestaurantImage(profile.id, restaurantId, 'cover', coverFile)
       }
 
       await updateRestaurantData(restaurantId, {
@@ -171,8 +192,8 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
         position: formData.position,
         city: formData.city,
         neighborhood: formData.neighborhood,
-        ...(coverPreview ? { image: formData.image } : {}),
-        ...(logoPreview ? { logo: formData.logo } : {}),
+        ...(coverUrl ? { image: coverUrl } : {}),
+        ...(logoUrl ? { logo: logoUrl } : {}),
         hours: formData.schedule.map(entryToDayHours),
       })
       if (mainCuisineId) {
@@ -181,9 +202,12 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
       setMessage({ type: 'success', text: 'Les informations ont été mises à jour avec succès' })
       setHasChanges(false)
       setScheduleError(null)
-    } catch (error) {
+      // Reset preview state — the underlying DB now holds the bucket URL.
+      setLogoPreview(null)
+      setCoverPreview(null)
+    } catch (error: any) {
       console.error('Error updating restaurant:', error)
-      setMessage({ type: 'error', text: 'Erreur lors de la mise à jour' })
+      setMessage({ type: 'error', text: error?.message ?? 'Erreur lors de la mise à jour' })
     } finally {
       setSaving(false)
     }
@@ -293,7 +317,7 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Nouvelle couverture</p>
                       <div className="relative aspect-video overflow-hidden rounded-lg border-2 border-green-500">
-                        <img src={coverPreview} alt="Cover preview" className="w-full h-full object-cover" crossOrigin="anonymous" />
+                        <img src={coverPreview} alt="Cover preview" className="w-full h-full object-cover" />
                       </div>
                     </div>
                   )}
@@ -301,7 +325,7 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Couverture actuelle</p>
                       <div className="relative aspect-video overflow-hidden rounded-lg border border-input">
-                        <img src={restaurant.image} alt="Current cover" className="w-full h-full object-cover" crossOrigin="anonymous" />
+                        <img src={resolveMediaUrl(restaurant.image)} alt="Current cover" className="w-full h-full object-cover" />
                       </div>
                     </div>
                   )}

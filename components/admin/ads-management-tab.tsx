@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Trash2, Power, Plus, CalendarClock, Infinity, Pencil } from 'lucide-react'
 import { AddAdModal } from './add-ad-modal'
+import { resolveMediaUrl } from '@/lib/media'
 
 export function AdsManagementTab() {
   const [ads, setAds] = useState<Ad[]>([])
@@ -106,9 +107,11 @@ export function AdsManagementTab() {
         {ads.map(ad => (
           <Card key={ad.id} className="overflow-hidden">
             <div className="relative aspect-video overflow-hidden bg-muted">
-              <img 
-                src={ad.image} 
+              <img
+                src={resolveMediaUrl(ad.image)}
                 alt={ad.alt}
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover"
               />
               <Badge 

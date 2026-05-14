@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import type { FavoriteStripItem } from "@/services/favorite.service"
+import { resolveMediaUrl } from "@/lib/media"
 
 interface FavoritesStripProps {
   initialFavorites: FavoriteStripItem[]
@@ -42,10 +43,11 @@ export function FavoritesStrip({ initialFavorites }: FavoritesStripProps) {
             >
               <div className="h-[72px] w-[72px] shrink-0">
                 <img
-                  src={row.restaurant.cover?.path || "/placeholder.svg"}
+                  src={resolveMediaUrl(row.restaurant.cover?.path)}
                   alt={row.restaurant.name}
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover"
-                  crossOrigin="anonymous"
                 />
               </div>
               <div className="flex flex-col justify-center px-3 py-2 min-w-0">

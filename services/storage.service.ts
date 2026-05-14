@@ -1,5 +1,16 @@
 import { createClient } from "@/lib/supabase/client"
 
+/**
+ * Single public bucket for every media asset (restaurants, plates, ads).
+ *
+ * Why one bucket: ad-blockers (uBlock Origin, AdBlock Plus, Brave Shield)
+ * match any URL containing `/ads/` via the universal `||*/ads/*` filter, so
+ * a dedicated `ads` bucket gets silently blocked for ~30 % of users. We keep
+ * everything under `restaurants/` and segregate platform-managed content
+ * under the special `__platform/` prefix.
+ */
+export type Bucket = "restaurants"
+
 export interface UploadResult {
   path: string
   fullPath: string
@@ -7,7 +18,7 @@ export interface UploadResult {
 }
 
 export async function uploadToBucket(
-  bucket: "restaurants" | "ads",
+  bucket: Bucket,
   path: string,
   file: File
 ): Promise<UploadResult> {
@@ -25,7 +36,7 @@ export async function uploadToBucket(
   }
 }
 
-export function getPublicUrl(bucket: "restaurants" | "ads", path: string): string {
+export function getPublicUrl(bucket: Bucket, path: string): string {
   const supabase = createClient()
   const { data } = supabase.storage.from(bucket).getPublicUrl(path)
   return data.publicUrl

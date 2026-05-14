@@ -167,7 +167,6 @@ export function RestaurantGrid({
                   position={restaurant.position}
                   tags={restaurant.tags}
                   isFavorite={restaurant.isFavorite}
-                  deliveryTime={restaurant.deliveryTime}
                 />
               ))}
             </div>
@@ -225,7 +224,6 @@ export function RestaurantGrid({
                   position={restaurant.position}
                   tags={restaurant.tags}
                   isFavorite={restaurant.isFavorite}
-                  deliveryTime={restaurant.deliveryTime}
                 />
               ))}
             </div>

@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Plus, Trash2, Edit, Play, X, ChevronUp, ChevronDown, Check } from 'lucide-react'
 import { AddDishModal } from './add-dish-modal'
 import { EditDishModal } from './edit-dish-modal'
+import { resolveMediaUrl } from '@/lib/media'
 
 // ---------------------------------------------------------------------------
 // DishCard
@@ -44,11 +45,12 @@ function DishCard({ dish, isFirst, isLast, onEdit, onDelete, onMoveUp, onMoveDow
         {playing && dish.video ? (
           <>
             <video
-              src={dish.video}
+              src={resolveMediaUrl(dish.video)}
               autoPlay
               muted
               loop
               playsInline
+              preload="none"
               className="w-full h-full object-cover"
             />
             <button
@@ -62,7 +64,13 @@ function DishCard({ dish, isFirst, isLast, onEdit, onDelete, onMoveUp, onMoveDow
           </>
         ) : (
           <>
-            <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+            <img
+              src={resolveMediaUrl(dish.image)}
+              alt={dish.name}
+              loading="lazy"
+              decoding="async"
+              className="w-full h-full object-cover"
+            />
             {dish.video && (
               <button
                 type="button"
@@ -512,6 +520,7 @@ export function DishManagementList({ restaurantId }: DishManagementListProps) {
         categories={categories}
         onCreateCategory={handleCreateCategory}
         defaultCategoryId={addToCategoryId}
+        restaurantId={restaurantId}
       />
 
       {editingDish && (
@@ -522,6 +531,7 @@ export function DishManagementList({ restaurantId }: DishManagementListProps) {
           onSaved={(updates) => handleUpdateDish(editingDish.id, updates)}
           categories={categories}
           onCreateCategory={handleCreateCategory}
+          restaurantId={restaurantId}
         />
       )}
     </div>

@@ -7,6 +7,7 @@ import Link from "next/link"
 import { toggleFavorite, type ToggleFavoriteResult } from "@/services/favorite.service"
 import { incrementRestaurantClick } from "@/services/restaurant.service"
 import { useAuth } from "@/components/providers/auth-provider"
+import { resolveMediaUrl } from "@/lib/media"
 
 export function RestaurantCardSkeleton() {
   return (
@@ -34,7 +35,6 @@ interface RestaurantCardProps {
   position: string
   tags?: string[]
   isFavorite?: boolean
-  deliveryTime: string
 }
 
 
@@ -48,7 +48,6 @@ export function RestaurantCard({
   position,
   tags = [],
   isFavorite = false,
-  deliveryTime,
 }: RestaurantCardProps) {
   const { profile } = useAuth()
   const isClient = !profile || profile.role === "client"
@@ -96,10 +95,11 @@ export function RestaurantCard({
         {/* Image Container */}
         <div className="relative aspect-[4/3] overflow-hidden">
           <img
-            src={image || "/placeholder.svg"}
+            src={resolveMediaUrl(image)}
             alt={name}
+            loading="lazy"
+            decoding="async"
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            crossOrigin="anonymous"
           />
         
         {/* Gradient Overlay */}

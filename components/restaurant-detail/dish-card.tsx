@@ -3,6 +3,7 @@
 import { useState, useRef } from "react"
 import { Play, X } from "lucide-react"
 import type { Dish } from "@/services/restaurant.service"
+import { resolveMediaUrl } from "@/lib/media"
 
 interface DishCardProps {
   dish: Dish
@@ -32,11 +33,12 @@ export function DishCard({ dish }: DishCardProps) {
           <>
             <video
               ref={videoRef}
-              src={dish.video}
+              src={resolveMediaUrl(dish.video)}
               autoPlay
               muted
               loop
               playsInline
+              preload="none"
               className="absolute inset-0 h-full w-full object-cover"
             />
             <button
@@ -50,10 +52,11 @@ export function DishCard({ dish }: DishCardProps) {
         ) : (
           <>
             <img
-              src={dish.image || "/placeholder.svg"}
+              src={resolveMediaUrl(dish.image)}
               alt={dish.name}
+              loading="lazy"
+              decoding="async"
               className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-              crossOrigin="anonymous"
             />
             {hasVideo && (
               <button
