@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import { supabaseFetch } from "@/lib/supabase/fetch"
 
 const TAG = "[bootstrap]"
 
@@ -22,6 +23,7 @@ async function doBootstrap() {
 
   const admin = createClient(url, serviceRole, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: supabaseFetch },
   })
 
   const email = process.env.SUPER_ADMIN_EMAIL

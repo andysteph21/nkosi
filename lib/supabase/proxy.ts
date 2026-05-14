@@ -1,5 +1,11 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { createFetchWithRetry } from "@/lib/supabase/fetch"
+
+// The proxy/middleware runs on every request. Keep its budget tight: short
+// timeout, only one retry, so an Auth outage doesn't compound page-load
+// latency for every visitor.
+const middlewareFetch = createFetchWithRetry({ timeoutMs: 4_000, maxAttempts: 2 })
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -8,6 +14,7 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
+      global: { fetch: middlewareFetch },
       cookies: {
         getAll() {
           return request.cookies.getAll()

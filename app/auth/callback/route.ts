@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import type { EmailOtpType } from "@supabase/supabase-js"
+import { supabaseFetch } from "@/lib/supabase/fetch"
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
@@ -19,6 +20,7 @@ export async function GET(request: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
+      global: { fetch: supabaseFetch },
       cookies: {
         getAll() {
           return request.headers

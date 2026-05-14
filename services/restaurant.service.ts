@@ -1,6 +1,7 @@
 import { fuzzyMatchAny } from "@/lib/fuzzy-search"
 import { createBrowserClient } from "@supabase/ssr"
 import { createClient as createSupabaseRawClient } from "@supabase/supabase-js"
+import { supabaseFetch } from "@/lib/supabase/fetch"
 
 function getSupabase() {
   // In the browser, use the SSR browser client so the cookie-based auth session
@@ -10,12 +11,14 @@ function getSupabase() {
   if (typeof window !== "undefined") {
     return createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+      { global: { fetch: supabaseFetch } },
     )
   }
   return createSupabaseRawClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { global: { fetch: supabaseFetch } },
   )
 }
 
@@ -60,7 +63,6 @@ export interface Restaurant {
   position: string
   tags: string[]
   isFavorite: boolean
-  deliveryTime: string
   about: string
   hours: DayHours[]
   dishes: Dish[]
@@ -161,8 +163,7 @@ export async function getRestaurants(): Promise<Restaurant[]> {
       position: restaurant.address,
       tags: cuisines.map((c) => c.name),
       isFavorite: favoriteIds.has(restaurant.id),
-      deliveryTime: "20-40 min",
-      about: restaurant.description ?? "",
+          about: restaurant.description ?? "",
       hours,
       dishes,
       categories,
@@ -315,8 +316,7 @@ export async function getRestaurantByIdWithClient(
     position: restaurant.address,
     tags: cuisines.map((c) => c.name),
     isFavorite: false,
-    deliveryTime: "20-40 min",
-    about: restaurant.description ?? "",
+      about: restaurant.description ?? "",
     hours,
     dishes,
     categories,
@@ -366,7 +366,6 @@ export interface RestaurantListItem {
   image: string
   cuisines: CuisineItem[]
   tags: string[]
-  deliveryTime: string
   isFavorite: boolean
 }
 
@@ -404,8 +403,7 @@ export async function getRestaurantsForListing(
       image: r.cover?.path ?? "/placeholder.svg",
       cuisines,
       tags: cuisines.map((c) => c.name),
-      deliveryTime: "20-40 min",
-      isFavorite: false,
+          isFavorite: false,
     }
   })
 }
@@ -527,8 +525,7 @@ export async function getMyRestaurantInfo(
     position: data.address,
     tags: cuisines.map((c) => c.name),
     isFavorite: false,
-    deliveryTime: "20-40 min",
-    about: data.description ?? "",
+      about: data.description ?? "",
     hours,
     dishes: [],
     categories: [],
