@@ -31,4 +31,5 @@ supabase/.branches/
 supabase/.temp/
 
 # one-shot migration logs (scripts/migrate-images-to-bucket.ts)
-migrate-images-*.log
+migrate-images-*.log
+log

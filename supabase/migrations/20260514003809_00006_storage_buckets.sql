@@ -100,4 +100,4 @@ create policy "admin_update_ads" on storage.objects
 drop policy if exists "admin_delete_ads" on storage.objects;
 create policy "admin_delete_ads" on storage.objects
   for delete
-  u
+  using (bucket_id = 'ads' and public.is_admin_like());
