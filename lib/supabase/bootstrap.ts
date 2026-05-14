@@ -7,7 +7,13 @@ let bootstrapPromise: Promise<void> | null = null
 
 export function ensureSuperAdminBootstrapped(): Promise<void> {
   if (!bootstrapPromise) {
-    bootstrapPromise = doBootstrap()
+    // Catch and log so a transient failure on first boot doesn't poison every
+    // subsequent layout render with a rejected promise. The bootstrap is
+    // best-effort; missing the super admin is recoverable on a later restart.
+    bootstrapPromise = doBootstrap().catch((err) => {
+      console.warn(TAG, "Bootstrap failed:", err)
+      bootstrapPromise = null
+    })
   }
   return bootstrapPromise
 }
@@ -105,14 +111,4 @@ async function doBootstrap() {
     {
       user_id: superAdminUserId,
       first_name: firstName,
-      last_name: lastName,
-      email,
-      role: "super_admin",
-      must_change_password: true,
-      confirmed_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" }
-  )
-  if (upsertError) console.error(TAG, "Profile upsert error:", upsertError)
-  else console.log(TAG, "Super admin bootstrapped successfully.")
-}
+ 
