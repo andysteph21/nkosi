@@ -1,0 +1,19 @@
+# Normalize line endings in the repo.
+#   - Text files are stored with LF in the git index.
+#   - Working tree line endings follow each contributor's core.autocrlf
+#     setting (CRLF on Windows when autocrlf=true, LF on macOS/Linux).
+# This avoids "modified file" noise on git status when contributors
+# clone from different OSes.
+
+* text=auto eol=lf
+
+# Lockfiles, configs and code — always LF, no exceptions.
+*.{ts,tsx,js,jsx,mjs,cjs,json,yaml,yml,md,sql,toml,html,css,sh} text eol=lf
+.gitignore                                                       text eol=lf
+.gitattributes                                                   text eol=lf
+.dockerignore                                                    text eol=lf
+Dockerfile                                                       text eol=lf
+caddy/Caddyfile                                                  text eol=lf
+
+# Known binary types (don't normalize).
+*.{png,jpg,jpeg,gif,webp,ico,svg,pdf,woff,woff2,ttf,otf,mp4} binary
