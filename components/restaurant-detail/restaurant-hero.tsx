@@ -83,23 +83,26 @@ export function RestaurantHero({ restaurant }: RestaurantHeroProps) {
         </div>
 
         {/* Restaurant info overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-6">
-          <div className="flex items-end gap-4">
+        <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
+          <div className="flex items-end gap-3 md:gap-4">
             {restaurant.logo ? (
               <img
                 src={resolveMediaUrl(restaurant.logo)}
                 alt={`Logo ${restaurant.name}`}
                 loading="lazy"
                 decoding="async"
-                className="h-16 w-16 shrink-0 rounded-2xl bg-white backdrop-blur-sm object-contain"
+                className="h-12 w-12 shrink-0 rounded-2xl bg-white backdrop-blur-sm object-contain md:h-16 md:w-16"
               />
             ) : (
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-card/90 backdrop-blur-sm text-xl font-bold text-primary">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-card/90 backdrop-blur-sm text-xl font-bold text-primary md:h-16 md:w-16">
                 {restaurant.name.charAt(0)}
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl md:text-3xl font-bold leading-tight text-primary-foreground break-words">
+              <h1
+                className="text-xl md:text-3xl font-bold leading-tight text-primary-foreground"
+                style={{ overflowWrap: "anywhere" }}
+              >
                 {restaurant.name}
               </h1>
               <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
