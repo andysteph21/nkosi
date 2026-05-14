@@ -98,8 +98,8 @@ export function RestaurantHero({ restaurant }: RestaurantHeroProps) {
                 {restaurant.name.charAt(0)}
               </div>
             )}
-            <div className="min-w-0">
-              <h1 className="text-2xl md:text-3xl font-bold text-primary-foreground text-balance">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-2xl md:text-3xl font-bold leading-tight text-primary-foreground break-words">
                 {restaurant.name}
               </h1>
               <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
