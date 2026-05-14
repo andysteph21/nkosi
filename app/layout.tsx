@@ -1,5 +1,5 @@
 import React from "react"
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { redirect } from "next/navigation"
@@ -9,14 +9,21 @@ import { createClient } from "@/lib/supabase/server"
 import { AuthProvider } from "@/components/providers/auth-provider"
 import { FirstSetupForm } from "@/components/auth/first-setup-form"
 import { ensureSuperAdminBootstrapped } from "@/lib/supabase/bootstrap"
+import { OfflineBanner } from "@/components/offline-banner"
+import { ServiceWorkerRegister } from "@/components/sw-register"
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
+
+export const viewport: Viewport = {
+  themeColor: '#2f5f2f',
+}
 
 export const metadata: Metadata = {
   title: 'NKOSI - Découvrez la cuisine africaine',
   description: 'Découvrez les meilleurs restaurants africains près de chez vous',
   generator: 'v0.app',
+  manifest: '/manifest.webmanifest',
   icons: {
     icon: [
       {
@@ -53,11 +60,13 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans antialiased`}>
+        <OfflineBanner />
         <AuthProvider initialProfile={profile}>
           {profile?.must_change_password
             ? <FirstSetupForm profile={profile} />
             : children}
         </AuthProvider>
+        <ServiceWorkerRegister />
         <Analytics />
       </body>
     </html>
