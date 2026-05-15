@@ -109,7 +109,6 @@ async function doBootstrap() {
   }
 
   if (!superAdminUserId) {
-<<<<<<< HEAD
     console.error(TAG, "FATAL: superAdminUserId is null after all attempts.")
     return
   }
@@ -129,6 +128,3 @@ async function doBootstrap() {
   if (upsertError) console.error(TAG, "Profile upsert error:", upsertError)
   else console.log(TAG, "Super admin bootstrapped successfully.")
 }
-=======
-   
->>>>>>> 8dde59e26ef77ba9354eaf587ce3be60178a38f4

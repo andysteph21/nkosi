@@ -44,7 +44,6 @@ export async function updateSession(request: NextRequest) {
     const { data } = await supabase.auth.getClaims()
     user = data?.claims ? { id: data.claims.sub as string } : null
   } catch (err) {
-<<<<<<< HEAD
     if (isNextInternalError(err)) throw err
     console.warn("[proxy] supabase.auth.getClaims failed:", err)
   }
@@ -69,6 +68,3 @@ export async function updateSession(request: NextRequest) {
 
   return response
 }
-=======
-    if (isNextInternalError(err)) t
->>>>>>> 8dde59e26ef77ba9354eaf587ce3be60178a38f4

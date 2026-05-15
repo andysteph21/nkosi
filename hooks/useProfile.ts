@@ -11,7 +11,6 @@ export default async function getProfile(): Promise<Profile | null> {
     const { data: profile, error } = await supabase
       .from("profile")
       .select("*")
-<<<<<<< HEAD
       .eq("user_id", data.user.id)
       .maybeSingle()
 
@@ -26,6 +25,3 @@ export default async function getProfile(): Promise<Profile | null> {
     return null
   }
 }
-=======
-      .
->>>>>>> 8dde59e26ef77ba9354eaf587ce3be60178a38f4
