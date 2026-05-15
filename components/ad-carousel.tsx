@@ -41,7 +41,7 @@ export function AdCarousel({ initialAds }: AdCarouselProps = {}) {
     }
 
     fetchAds()
-  }, [])
+  }, [initialAds])
 
   const goToPrevious = () => {
     if (ads.length === 0) return
@@ -62,25 +62,24 @@ export function AdCarousel({ initialAds }: AdCarouselProps = {}) {
 
     setProgress(0)
     const startTime = performance.now()
+    let rafId = 0
 
     const tick = () => {
       const elapsed = performance.now() - startTime
       const pct = Math.min((elapsed / INTERVAL_MS) * 100, 100)
       setProgress(pct)
       if (pct < 100) {
-        rafRef.current = requestAnimationFrame(tick)
+        rafId = requestAnimationFrame(tick)
       }
     }
 
-    const rafRef = { current: 0 as number }
-    rafRef.current = requestAnimationFrame(tick)
-
+    rafId = requestAnimationFrame(tick)
     const timeout = setTimeout(() => {
       goToNext()
     }, INTERVAL_MS)
 
     return () => {
-      cancelAnimationFrame(rafRef.current)
+      cancelAnimationFrame(rafId)
       clearTimeout(timeout)
     }
   }, [currentIndex, ads.length, goToNext])
@@ -163,8 +162,8 @@ export function AdCarousel({ initialAds }: AdCarouselProps = {}) {
               onClick={() => goToSlide(index)}
               className={cn(
                 "h-2 rounded-full transition-all duration-300",
-                index === currentIndex 
-                  ? "w-6 bg-highlight" 
+                index === currentIndex
+                  ? "w-6 bg-highlight"
                   : "w-2 bg-card/60 hover:bg-card"
               )}
               aria-label={`Aller à l'image ${index + 1}`}
