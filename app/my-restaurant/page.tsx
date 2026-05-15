@@ -27,7 +27,7 @@ export default async function MyRestaurantPage() {
       <main className="flex-1">
         <div className="max-w-5xl mx-auto px-4 py-8">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold text-foreground mb-2">Mon Restaurant</h1>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-2">Mon Restaurant</h1>
             <p className="text-muted-foreground">Gérez vos informations et votre menu</p>
           </div>
           <MyRestaurantTabs restaurantId={restaurantId} restaurantLogo={restaurantLogo} />

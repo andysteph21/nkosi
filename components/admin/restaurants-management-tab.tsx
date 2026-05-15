@@ -106,7 +106,8 @@ export function RestaurantsManagementTab() {
                 </div>
               )}
               {filteredRestaurants.length > 0 && (
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <table className="w-full min-w-[640px] text-sm">
                   <thead>
                     <tr className="border-b">
                       <th className="text-left py-3 px-4 font-medium">Nom</th>
@@ -154,6 +155,7 @@ export function RestaurantsManagementTab() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </>
           )}

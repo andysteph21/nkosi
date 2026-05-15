@@ -21,16 +21,16 @@ export default function AdminPage() {
       <main className="flex-1">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold text-foreground mb-2">Tableau de Bord Admin</h1>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-2">Tableau de Bord Admin</h1>
             <p className="text-muted-foreground">Gérez les publicités et les restaurants de la plateforme</p>
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className={`grid w-full ${isSuperAdmin ? "max-w-2xl grid-cols-4" : "max-w-3xl grid-cols-3"}`}>
-              {isSuperAdmin ? <TabsTrigger value="admins">Admins</TabsTrigger> : null}
-              <TabsTrigger value="ads">Publicités</TabsTrigger>
-              <TabsTrigger value="restaurants">Restaurants</TabsTrigger>
-              <TabsTrigger value="cuisines">Cuisines</TabsTrigger>
+              {isSuperAdmin ? <TabsTrigger value="admins" className="truncate min-w-0">Admins</TabsTrigger> : null}
+              <TabsTrigger value="ads" className="truncate min-w-0">Publicités</TabsTrigger>
+              <TabsTrigger value="restaurants" className="truncate min-w-0">Restaurants</TabsTrigger>
+              <TabsTrigger value="cuisines" className="truncate min-w-0">Cuisines</TabsTrigger>
             </TabsList>
 
             {isSuperAdmin ? (

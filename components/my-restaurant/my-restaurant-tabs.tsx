@@ -43,12 +43,12 @@ export function MyRestaurantTabs({ restaurantId, restaurantLogo }: MyRestaurantT
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className="grid w-full max-w-3xl grid-cols-5">
-        <TabsTrigger value="info">Informations</TabsTrigger>
-        <TabsTrigger value="menu">Menu</TabsTrigger>
-        <TabsTrigger value="visibility">Visibilite</TabsTrigger>
-        <TabsTrigger value="qr">QR Code</TabsTrigger>
-        <TabsTrigger value="stats">Statistiques</TabsTrigger>
+      <TabsList className="flex w-full max-w-3xl overflow-x-auto md:grid md:grid-cols-5">
+        <TabsTrigger value="info" className="flex-shrink-0">Informations</TabsTrigger>
+        <TabsTrigger value="menu" className="flex-shrink-0">Menu</TabsTrigger>
+        <TabsTrigger value="visibility" className="flex-shrink-0">Visibilité</TabsTrigger>
+        <TabsTrigger value="qr" className="flex-shrink-0">QR Code</TabsTrigger>
+        <TabsTrigger value="stats" className="flex-shrink-0">Statistiques</TabsTrigger>
       </TabsList>
 
       <TabsContent value="info" className="mt-6">

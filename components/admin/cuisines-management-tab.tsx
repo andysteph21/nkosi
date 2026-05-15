@@ -78,18 +78,20 @@ export function CuisinesManagementTab() {
         </div>
         <div className="space-y-2">
           {cuisines.map((cuisine) => (
-            <div key={cuisine.id} className="flex gap-2 items-center">
-              <Input
-                defaultValue={cuisine.name}
-                onBlur={(e) => {
-                  const value = e.target.value.trim()
-                  if (value && value !== cuisine.name) onRename(cuisine.id, value)
-                }}
-              />
-              <Button variant="destructive" onClick={() => onDelete(cuisine.id)} disabled={pending}>
-                Supprimer
-              </Button>
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
+            <div key={cuisine.id} className="flex flex-col sm:flex-row gap-2 sm:items-center">
+              <div className="flex gap-2 flex-1 min-w-0">
+                <Input
+                  defaultValue={cuisine.name}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim()
+                    if (value && value !== cuisine.name) onRename(cuisine.id, value)
+                  }}
+                />
+                <Button variant="destructive" onClick={() => onDelete(cuisine.id)} disabled={pending}>
+                  Supprimer
+                </Button>
+              </div>
+              <span className="text-xs text-muted-foreground whitespace-nowrap sm:ml-2">
                 Principal: {cuisine.mainCount} | Secondaire: {cuisine.subCount}
               </span>
             </div>
