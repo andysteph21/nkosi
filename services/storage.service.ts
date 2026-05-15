@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client"
  * Single public bucket for every media asset (restaurants, plates, ads).
  *
  * Why one bucket: ad-blockers (uBlock Origin, AdBlock Plus, Brave Shield)
- * match any URL containing `/ads/` via the universal `||*/ads/*` filter, so
+ * match any URL containing /ads/ via the universal ad-blocker filter rule, so
  * a dedicated `ads` bucket gets silently blocked for ~30 % of users. We keep
  * everything under `restaurants/` and segregate platform-managed content
  * under the special `__platform/` prefix.
