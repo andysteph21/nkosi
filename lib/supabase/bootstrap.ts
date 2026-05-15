@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { supabaseFetch } from "@/lib/supabase/fetch"
+import { isNextInternalError } from "@/lib/next-errors"
 
 const TAG = "[bootstrap]"
 
@@ -10,7 +11,12 @@ export function ensureSuperAdminBootstrapped(): Promise<void> {
     // Catch and log so a transient failure on first boot doesn't poison every
     // subsequent layout render with a rejected promise. The bootstrap is
     // best-effort; missing the super admin is recoverable on a later restart.
+    // Re-throw Next.js sentinel errors (redirect/notFound/dynamic) untouched.
     bootstrapPromise = doBootstrap().catch((err) => {
+      if (isNextInternalError(err)) {
+        bootstrapPromise = null
+        throw err
+      }
       console.warn(TAG, "Bootstrap failed:", err)
       bootstrapPromise = null
     })
@@ -103,12 +109,4 @@ async function doBootstrap() {
   }
 
   if (!superAdminUserId) {
-    console.error(TAG, "FATAL: superAdminUserId is null after all attempts.")
-    return
-  }
-
-  const { error: upsertError } = await admin.from("profile").upsert(
-    {
-      user_id: superAdminUserId,
-      first_name: firstName,
- 
+   
