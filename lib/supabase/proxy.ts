@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { createFetchWithRetry } from "@/lib/supabase/fetch"
+import { isNextInternalError } from "@/lib/next-errors"
 
 // The proxy/middleware runs on every request to a protected route. Give it
 // a generous-but-bounded budget: an Auth call that takes 9 s is rare but not
@@ -36,15 +37,34 @@ export async function updateSession(request: NextRequest) {
   // Defensive: if the Auth call throws (network blip, abort, etc.) we treat
   // the visitor as unauthenticated rather than crashing the middleware,
   // which would surface as Next's generic "This page could not load" error.
+  // Re-throw Next's own sentinel errors so redirect/notFound/dynamic-detection
+  // keep working.
   let user: { id: string } | null = null
   try {
     const { data } = await supabase.auth.getClaims()
     user = data?.claims ? { id: data.claims.sub as string } : null
   } catch (err) {
+    if (isNextInternalError(err)) throw err
     console.warn("[proxy] supabase.auth.getClaims failed:", err)
   }
 
   const path = request.nextUrl.pathname
-  const isPublicPath =
-    path === "/" ||
-    path.startsWith("/restaurant/"
+  const isAuthPath = path.startsWith("/sign-in") || path.startsWith("/sign-up")
+
+  const isProtectedPath =
+    path.startsWith("/admin") ||
+    path.startsWith("/my-restaurant") ||
+    path.startsWith("/profile") ||
+    path.startsWith("/create-restaurant") ||
+    path.startsWith("/first-setup")
+
+  if (isAuthPath && user) {
+    return NextResponse.redirect(new URL("/", request.url))
+  }
+
+  if (!user && isProtectedPath) {
+    return NextResponse.redirect(new URL("/sign-in", request.url))
+  }
+
+  return response
+}
