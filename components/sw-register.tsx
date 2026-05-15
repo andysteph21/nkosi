@@ -3,34 +3,39 @@
 import { useEffect } from "react"
 
 /**
- * Registers /sw.js on mount. Renders nothing.
+ * EMERGENCY KILL-SWITCH (temporary):
  *
- * In dev the service worker is intentionally NOT registered — caching makes
- * iterating on the app painful, and the dev server doesn't serve `/sw.js`
- * with the right Cache-Control headers anyway.
+ * The previously-deployed service worker (versioned 'v1') intercepted
+ * /_next/static/* with a CacheFirst strategy. After a hot redeploy,
+ * browsers were loading a mix of stale + fresh chunks and crashing at
+ * hydration with 'ReferenceError: ads is not defined' (turbopack module
+ * evaluation). To rescue users in the wild, this component now
+ * unregisters any active service worker and purges all caches on first
+ * mount, then never re-registers.
+ *
+ * Once everyone has loaded the page once with this build, we can flip
+ * the strategy: bump sw.js CACHE_VERSION, use NetworkFirst for chunks,
+ * and re-enable registration.
  */
 export function ServiceWorkerRegister() {
   useEffect(() => {
     if (typeof window === "undefined") return
-    if (process.env.NODE_ENV !== "production") return
     if (!("serviceWorker" in navigator)) return
 
-    // Defer registration to after the page is fully interactive so we don't
-    // compete with first-paint resources.
-    const register = () => {
-      navigator.serviceWorker
-        .register("/sw.js", { scope: "/" })
-        .catch((err) => {
-          // Non-fatal: the app works without the SW, the user just doesn't
-          // get the offline-friendly caching.
-          console.warn("[sw] registration failed", err)
-        })
-    }
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) => {
+        for (const registration of registrations) {
+          registration.unregister().catch(() => {})
+        }
+      })
+      .catch(() => {})
 
-    if (document.readyState === "complete") {
-      register()
-    } else {
-      window.addEventListener("load", register, { once: true })
+    if ("caches" in window) {
+      caches
+        .keys()
+        .then((names) => Promise.all(names.map((name) => caches.delete(name))))
+        .catch(() => {})
     }
   }, [])
 

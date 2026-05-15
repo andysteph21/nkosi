@@ -1,7 +1,6 @@
 import React from "react"
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
 import { redirect } from "next/navigation"
 import './globals.css'
 import getProfile from "@/hooks/useProfile"
@@ -67,7 +66,6 @@ export default async function RootLayout({
             : children}
         </AuthProvider>
         <ServiceWorkerRegister />
-        <Analytics />
       </body>
     </html>
   )
