@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server"
 import { createFetchWithRetry } from "@/lib/supabase/fetch"
 import { isNextInternalError } from "@/lib/next-errors"
 
+const TAG = "[proxy]"
+
 // The proxy/middleware runs on every request to a protected route. Give it
 // a generous-but-bounded budget: an Auth call that takes 9 s is rare but not
 // unheard of when the Supabase Auth service is cold-starting and the VPS is
@@ -45,7 +47,7 @@ export async function updateSession(request: NextRequest) {
     user = data?.claims ? { id: data.claims.sub as string } : null
   } catch (err) {
     if (isNextInternalError(err)) throw err
-    console.warn("[proxy] supabase.auth.getClaims failed:", err)
+    console.warn(TAG, "supabase.auth.getClaims failed:", err)
   }
 
   const path = request.nextUrl.pathname
@@ -59,10 +61,25 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/first-setup")
 
   if (isAuthPath && user) {
+    console.log(TAG, "authenticated user on auth path", path, "→ redirecting to /")
     return NextResponse.redirect(new URL("/", request.url))
   }
 
   if (!user && isProtectedPath) {
+    // Most important debug line: when a freshly-confirmed user lands on a
+    // protected page and gets bounced, this is where we see it. If the
+    // /auth/callback log just said "cookies set" but we hit this branch
+    // moments later, the cookie didn't survive the redirect (domain,
+    // path, SameSite, etc.).
+    console.log(
+      TAG,
+      "unauthenticated user on protected path",
+      path,
+      "→ redirecting to /sign-in",
+      JSON.stringify({
+        cookieNames: request.cookies.getAll().map((c) => c.name),
+      }),
+    )
     return NextResponse.redirect(new URL("/sign-in", request.url))
   }
 
