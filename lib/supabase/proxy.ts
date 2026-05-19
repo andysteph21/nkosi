@@ -57,8 +57,7 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/admin") ||
     path.startsWith("/my-restaurant") ||
     path.startsWith("/profile") ||
-    path.startsWith("/create-restaurant") ||
-    path.startsWith("/first-setup")
+    path.startsWith("/create-restaurant")
 
   if (isAuthPath && user) {
     console.log(TAG, "authenticated user on auth path", path, "→ redirecting to /")
