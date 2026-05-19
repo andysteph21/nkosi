@@ -1,7 +1,9 @@
 "use server"
 
 import { redirect } from "next/navigation"
+import { isAuthApiError } from "@supabase/supabase-js"
 import { encodedRedirect } from "@/lib/auth-redirect"
+import { frenchAuthError } from "@/lib/auth-errors"
 import { createClient } from "@/lib/supabase/server"
 import type { UserRole } from "@/lib/types"
 
@@ -14,7 +16,7 @@ export async function resendConfirmationAction(formData: FormData) {
   const { error } = await supabase.auth.resend({ type: "signup", email })
   if (error) {
     console.error("[resendConfirmationAction]", error)
-    encodedRedirect("error", "/sign-in", "Impossible de renvoyer l'email de confirmation.")
+    encodedRedirect("error", "/sign-in", frenchAuthError(error))
   }
   redirect(`/check-email?email=${encodeURIComponent(email)}&resent=1`)
 }
@@ -30,7 +32,7 @@ export async function updateProfileNamesAction(formData: FormData) {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    encodedRedirect("error", "/profile", "Session invalide.")
+    encodedRedirect("error", "/profile", "Session invalide. Reconnectez-vous.")
   }
 
   const { error } = await supabase
@@ -40,13 +42,35 @@ export async function updateProfileNamesAction(formData: FormData) {
 
   if (error) {
     console.error("[updateProfileNamesAction]", error)
-    encodedRedirect("error", "/profile", "Impossible de mettre a jour le profil.")
+    encodedRedirect("error", "/profile", "Impossible de mettre à jour le profil.")
   }
 
-  encodedRedirect("success", "/profile", "Profil mis a jour.")
+  encodedRedirect("success", "/profile", "Profil mis à jour.")
 }
 
 const PUBLIC_SIGNUP_ROLES: UserRole[] = ["client", "restaurateur"]
+
+/** Re-render /sign-up with the staged user input preserved, so the visitor
+ *  doesn't have to retype their name and email after a validation error. */
+function signUpErrorRedirect(opts: {
+  error: string
+  firstName: string
+  lastName: string
+  email: string
+  role: UserRole
+  redirectTo?: string
+  autoLike?: string
+}): never {
+  const params = new URLSearchParams()
+  params.set("error", opts.error)
+  params.set("role", opts.role)
+  if (opts.firstName) params.set("firstName", opts.firstName)
+  if (opts.lastName) params.set("lastName", opts.lastName)
+  if (opts.email) params.set("email", opts.email)
+  if (opts.redirectTo) params.set("redirect", opts.redirectTo)
+  if (opts.autoLike) params.set("auto_like", opts.autoLike)
+  redirect(`/sign-up?${params.toString()}`)
+}
 
 export async function signUpAction(formData: FormData) {
   const supabase = await createClient()
@@ -59,16 +83,27 @@ export async function signUpAction(formData: FormData) {
   const redirectTo = formData.get("redirectTo")?.toString() ?? "/"
   const autoLike = formData.get("autoLike")?.toString() ?? ""
 
+  const fail = (message: string) =>
+    signUpErrorRedirect({
+      error: message,
+      firstName,
+      lastName,
+      email,
+      role,
+      redirectTo,
+      autoLike,
+    })
+
   if (!firstName || !lastName || !email || !password) {
-    encodedRedirect("error", "/sign-up", "Veuillez remplir tous les champs requis.")
+    fail("Veuillez remplir tous les champs requis.")
   }
 
   if (password !== confirmPassword) {
-    encodedRedirect("error", "/sign-up", "Les mots de passe ne correspondent pas.")
+    fail("Les mots de passe ne correspondent pas.")
   }
 
   if (!PUBLIC_SIGNUP_ROLES.includes(role)) {
-    encodedRedirect("error", "/sign-up", "Type de compte invalide.")
+    fail("Type de compte invalide.")
   }
 
   const { data, error } = await supabase.auth.signUp({
@@ -86,7 +121,7 @@ export async function signUpAction(formData: FormData) {
 
   if (error || !data.user) {
     console.error("[signUpAction] auth.signUp error:", error)
-    encodedRedirect("error", "/sign-up", "Erreur lors de la creation du compte.")
+    fail(frenchAuthError(error))
   }
   const createdUser = data.user!
 
@@ -107,7 +142,20 @@ export async function signUpAction(formData: FormData) {
 
   if (profileError) {
     console.error("[signUpAction] profile insert error:", profileError)
-    encodedRedirect("error", "/sign-up", "Impossible de creer le profil utilisateur.")
+    // The auth.users row exists but has no profile attached: that would block
+    // any future sign-up with the same email (the next attempt would see
+    // `email_exists`). Roll the auth user back so the visitor can retry
+    // cleanly.
+    try {
+      await adminClient.auth.admin.deleteUser(createdUser.id)
+    } catch (cleanupErr) {
+      console.error(
+        "[signUpAction] FATAL: profile insert failed AND auth user cleanup failed; orphan auth.users row left for",
+        createdUser.id,
+        cleanupErr,
+      )
+    }
+    fail("Compte non créé : impossible de sauvegarder le profil. Réessayez.")
   }
 
   redirect(`/check-email?email=${encodeURIComponent(email)}`)
@@ -120,11 +168,13 @@ export async function signInAction(formData: FormData) {
 
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) {
-    if (error.message === "Email not confirmed") {
+    // Special-case unconfirmed emails: route to the dedicated "renvoyer le mail"
+    // screen rather than the generic error banner.
+    if (isAuthApiError(error) && error.code === "email_not_confirmed") {
       redirect(`/sign-in?unconfirmed=${encodeURIComponent(email)}`)
     }
     console.error("[signInAction]", error)
-    encodedRedirect("error", "/sign-in", "Email ou mot de passe invalide.")
+    encodedRedirect("error", "/sign-in", frenchAuthError(error))
   }
 
   const {
@@ -136,11 +186,11 @@ export async function signInAction(formData: FormData) {
       .from("profile")
       .select("is_active")
       .eq("user_id", user.id)
-      .single()
+      .maybeSingle()
 
     if (profile && !profile.is_active) {
       await supabase.auth.signOut()
-      encodedRedirect("error", "/sign-in", "Compte desactive. Contactez un administrateur.")
+      encodedRedirect("error", "/sign-in", "Compte désactivé. Contactez un administrateur.")
     }
   }
 
@@ -160,10 +210,10 @@ export async function forgotPasswordAction(formData: FormData) {
 
   if (error) {
     console.error("[forgotPasswordAction]", error)
-    encodedRedirect("error", "/forgot-password", "Impossible d'envoyer l'email de reinitialisation.")
+    encodedRedirect("error", "/forgot-password", frenchAuthError(error))
   }
 
-  encodedRedirect("success", "/forgot-password", "Email envoye. Verifiez votre boite mail.")
+  encodedRedirect("success", "/forgot-password", "Email envoyé. Vérifiez votre boîte mail.")
 }
 
 export async function resetPasswordAction(formData: FormData) {
@@ -178,10 +228,10 @@ export async function resetPasswordAction(formData: FormData) {
   const { error } = await supabase.auth.updateUser({ password })
   if (error) {
     console.error("[resetPasswordAction]", error)
-    encodedRedirect("error", "/reset-password", "Impossible de mettre a jour le mot de passe.")
+    encodedRedirect("error", "/reset-password", frenchAuthError(error))
   }
 
-  encodedRedirect("success", "/reset-password", "Mot de passe mis a jour.")
+  encodedRedirect("success", "/reset-password", "Mot de passe mis à jour.")
 }
 
 export async function changePasswordAction(formData: FormData) {
@@ -202,7 +252,7 @@ export async function changePasswordAction(formData: FormData) {
   } = await supabase.auth.getUser()
 
   if (!user?.email) {
-    encodedRedirect("error", "/profile", "Session invalide.")
+    encodedRedirect("error", "/profile", "Session invalide. Reconnectez-vous.")
   }
   const userEmail = user!.email!
   const userId = user!.id
@@ -220,7 +270,7 @@ export async function changePasswordAction(formData: FormData) {
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) {
     console.error("[changePasswordAction] updateUser error:", error)
-    encodedRedirect("error", "/profile", "Impossible de changer le mot de passe.")
+    encodedRedirect("error", "/profile", frenchAuthError(error))
   }
 
   const { error: profileErr } = await supabase
@@ -230,10 +280,10 @@ export async function changePasswordAction(formData: FormData) {
 
   if (profileErr) {
     console.error("[changePasswordAction] profile update error:", profileErr)
-    encodedRedirect("error", "/profile", "Mot de passe modifie mais mise a jour du profil echouee.")
+    encodedRedirect("error", "/profile", "Mot de passe modifié mais mise à jour du profil échouée.")
   }
 
-  encodedRedirect("success", "/profile", "Mot de passe mis a jour.")
+  encodedRedirect("success", "/profile", "Mot de passe mis à jour.")
 }
 
 export async function firstSetupAction(formData: FormData): Promise<{ error?: string; success?: string }> {
@@ -262,7 +312,7 @@ export async function firstSetupAction(formData: FormData): Promise<{ error?: st
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return { error: "Session invalide." }
+    return { error: "Session invalide. Reconnectez-vous." }
   }
 
   if (email.toLowerCase() === user.email?.toLowerCase()) {
@@ -275,7 +325,7 @@ export async function firstSetupAction(formData: FormData): Promise<{ error?: st
   })
   if (authError) {
     console.error("[firstSetupAction] updateUser error:", authError)
-    return { error: "Impossible de mettre à jour les informations." }
+    return { error: frenchAuthError(authError) }
   }
 
   const { createAdminClient } = await import("@/lib/supabase/admin")
@@ -311,7 +361,7 @@ export async function deleteAccountAction() {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) {
-    encodedRedirect("error", "/profile", "Session invalide.")
+    encodedRedirect("error", "/profile", "Session invalide. Reconnectez-vous.")
   }
 
   const { data: profile } = await supabase.from("profile").select("id").eq("user_id", user!.id).single()

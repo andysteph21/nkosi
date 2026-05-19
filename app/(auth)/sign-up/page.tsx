@@ -6,7 +6,16 @@ import { ChefHat, UtensilsCrossed } from "lucide-react"
 export default async function SignUpPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; success?: string; role?: "client" | "restaurateur"; redirect?: string; auto_like?: string }>
+  searchParams: Promise<{
+    error?: string
+    success?: string
+    role?: "client" | "restaurateur"
+    redirect?: string
+    auto_like?: string
+    firstName?: string
+    lastName?: string
+    email?: string
+  }>
 }) {
   const params = await searchParams
   const role = params.role
@@ -89,9 +98,23 @@ export default async function SignUpPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {params.error ? <p className="text-sm text-destructive">{params.error}</p> : null}
+          {params.error ? (
+            <div
+              role="alert"
+              className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {params.error}
+            </div>
+          ) : null}
           {params.success ? <p className="text-sm text-green-600">{params.success}</p> : null}
-          <SignUpForm defaultRole={role} redirect={params.redirect} autoLike={params.auto_like} />
+          <SignUpForm
+            defaultRole={role}
+            defaultFirstName={params.firstName}
+            defaultLastName={params.lastName}
+            defaultEmail={params.email}
+            redirect={params.redirect}
+            autoLike={params.auto_like}
+          />
           <p className="text-sm text-muted-foreground text-center">
             Déjà inscrit ?{" "}
             <Link href="/sign-in" className="underline">

@@ -42,68 +42,105 @@ export function FirstSetupForm({ profile }: { profile: Profile }) {
         </CardHeader>
         <CardContent>
           {error ? (
-            <p className="text-sm text-destructive mb-4">{error}</p>
+            <div
+              id="first-setup-error"
+              role="alert"
+              aria-live="polite"
+              className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {error}
+            </div>
           ) : null}
           {success ? (
-            <p className="text-sm text-green-600 mb-4">{success}</p>
+            <p role="status" aria-live="polite" className="text-sm text-green-600 mb-4">
+              {success}
+            </p>
           ) : null}
-          <form action={onSubmit} className="space-y-4">
+          <form action={onSubmit} className="space-y-4" aria-describedby={error ? "first-setup-error" : undefined}>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium">Prénom</label>
+                <label htmlFor="setup-firstName" className="text-sm font-medium">
+                  Prénom
+                </label>
                 <Input
+                  id="setup-firstName"
                   name="firstName"
                   required
                   autoComplete="given-name"
+                  autoCapitalize="words"
                   defaultValue={profile.first_name}
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Nom</label>
+                <label htmlFor="setup-lastName" className="text-sm font-medium">
+                  Nom
+                </label>
                 <Input
+                  id="setup-lastName"
                   name="lastName"
                   required
                   autoComplete="family-name"
+                  autoCapitalize="words"
                   defaultValue={profile.last_name}
                 />
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium">Nouvelle adresse email</label>
+              <label htmlFor="setup-email" className="text-sm font-medium">
+                Nouvelle adresse email
+              </label>
               <Input
+                id="setup-email"
                 name="email"
                 type="email"
                 required
                 autoComplete="email"
+                inputMode="email"
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
                 placeholder="votre-email@exemple.com"
+                aria-describedby="setup-email-help"
               />
-              <p className="text-xs text-muted-foreground mt-1">
+              <p id="setup-email-help" className="text-xs text-muted-foreground mt-1">
                 Un lien de vérification sera envoyé à la nouvelle adresse.
                 L&apos;adresse actuelle ({profile.email}) ne pourra plus être utilisée.
               </p>
             </div>
             <div>
-              <label className="text-sm font-medium">Nouveau mot de passe</label>
+              <label htmlFor="setup-newPassword" className="text-sm font-medium">
+                Nouveau mot de passe
+              </label>
               <Input
+                id="setup-newPassword"
                 name="newPassword"
                 type="password"
                 required
                 minLength={8}
                 autoComplete="new-password"
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Confirmer le mot de passe</label>
+              <label htmlFor="setup-confirmPassword" className="text-sm font-medium">
+                Confirmer le mot de passe
+              </label>
               <Input
+                id="setup-confirmPassword"
                 name="confirmPassword"
                 type="password"
                 required
                 minLength={8}
                 autoComplete="new-password"
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={pending}>
-              {pending ? "Enregistrement..." : "Enregistrer et continuer"}
+            <Button type="submit" className="w-full" disabled={pending} aria-busy={pending}>
+              {pending ? "Enregistrement…" : "Enregistrer et continuer"}
             </Button>
           </form>
         </CardContent>

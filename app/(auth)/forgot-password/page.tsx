@@ -14,20 +14,48 @@ export default async function ForgotPasswordPage({
     <div className="min-h-screen grid place-items-center p-4 bg-background">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Mot de passe oublie</CardTitle>
-          <CardDescription>Recevez un lien de reinitialisation par email.</CardDescription>
+          <CardTitle>Mot de passe oublié</CardTitle>
+          <CardDescription>Recevez un lien de réinitialisation par email.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {params.error ? <p className="text-sm text-destructive">{params.error}</p> : null}
-          {params.success ? <p className="text-sm text-green-600">{params.success}</p> : null}
+          {params.error ? (
+            <div
+              role="alert"
+              aria-live="polite"
+              className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {params.error}
+            </div>
+          ) : null}
+          {params.success ? (
+            <p role="status" aria-live="polite" className="text-sm text-green-600">
+              {params.success}
+            </p>
+          ) : null}
           <form action={forgotPasswordAction} className="space-y-4">
-            <Input type="email" name="email" placeholder="Email" required autoComplete="email" />
+            <div>
+              <label htmlFor="fp-email" className="text-sm font-medium">
+                Email
+              </label>
+              <Input
+                id="fp-email"
+                type="email"
+                name="email"
+                placeholder="votre-email@exemple.com"
+                required
+                autoComplete="email"
+                inputMode="email"
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+              />
+            </div>
             <Button type="submit" className="w-full">
               Envoyer le lien
             </Button>
           </form>
           <Link href="/sign-in" className="text-sm underline text-center block">
-            Retour a la connexion
+            Retour à la connexion
           </Link>
         </CardContent>
       </Card>

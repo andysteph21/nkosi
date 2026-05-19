@@ -21,7 +21,7 @@ export default async function SignInPage({
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
               <MailCheck className="h-6 w-6 text-amber-600" />
             </div>
-            <CardTitle>Email non confirme</CardTitle>
+            <CardTitle>Email non confirmé</CardTitle>
             <CardDescription>
               Confirmez votre adresse <strong>{email}</strong> avant de vous connecter.
             </CardDescription>
@@ -30,7 +30,7 @@ export default async function SignInPage({
             {params.error ? <p className="text-sm text-destructive text-center">{params.error}</p> : null}
             {params.success ? <p className="text-sm text-green-600 text-center">{params.success}</p> : null}
             <p className="text-sm text-muted-foreground text-center">
-              Un email de confirmation vous a ete envoye lors de votre inscription. Verifiez votre boite de reception (et les spams).
+              Un email de confirmation vous a été envoyé lors de votre inscription. Vérifiez votre boîte de réception (et les spams).
             </p>
             <form action={resendConfirmationAction}>
               <input type="hidden" name="email" value={email} />
@@ -42,7 +42,7 @@ export default async function SignInPage({
               href="/sign-in"
               className="text-sm text-muted-foreground hover:underline block text-center"
             >
-              Retour a la connexion
+              Retour à la connexion
             </Link>
           </CardContent>
         </Card>
@@ -55,10 +55,14 @@ export default async function SignInPage({
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Connexion</CardTitle>
-          <CardDescription>Connectez-vous a votre compte NKOSI.</CardDescription>
+          <CardDescription>Connectez-vous à votre compte NKOSI.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {params.error ? <p className="text-sm text-destructive">{params.error}</p> : null}
+          {params.error ? (
+            <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {params.error}
+            </div>
+          ) : null}
           {params.success ? <p className="text-sm text-green-600">{params.success}</p> : null}
           <LoginForm />
           <p className="text-sm text-muted-foreground text-center">
