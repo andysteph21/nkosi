@@ -87,7 +87,7 @@ export function FirstSetupForm({ profile }: { profile: Profile }) {
             </div>
             <div>
               <label htmlFor="setup-email" className="text-sm font-medium">
-                Nouvelle adresse email
+                Adresse email
               </label>
               <Input
                 id="setup-email"
@@ -99,12 +99,13 @@ export function FirstSetupForm({ profile }: { profile: Profile }) {
                 spellCheck={false}
                 autoCapitalize="off"
                 autoCorrect="off"
-                placeholder="votre-email@exemple.com"
+                defaultValue={profile.email}
                 aria-describedby="setup-email-help"
               />
               <p id="setup-email-help" className="text-xs text-muted-foreground mt-1">
-                Un lien de vérification sera envoyé à la nouvelle adresse.
-                L&apos;adresse actuelle ({profile.email}) ne pourra plus être utilisée.
+                Gardez votre adresse actuelle ou changez-la. Si vous la modifiez,
+                un lien de vérification sera envoyé à la nouvelle adresse et
+                l&apos;ancienne ne pourra plus être utilisée.
               </p>
             </div>
             <div>

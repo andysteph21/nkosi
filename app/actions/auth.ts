@@ -315,14 +315,17 @@ export async function firstSetupAction(formData: FormData): Promise<{ error?: st
     return { error: "Session invalide. Reconnectez-vous." }
   }
 
-  if (email.toLowerCase() === user.email?.toLowerCase()) {
-    return { error: "Vous devez utiliser une adresse email différente de l'adresse actuelle." }
-  }
+  // Only send email to Supabase if it actually changed: passing the same
+  // address triggers a re-verification email to no purpose. Common case:
+  // an invited admin whose invitation email IS their real address has no
+  // reason to change it during first setup.
+  const emailChanged = email.toLowerCase() !== user.email?.toLowerCase()
 
-  const { error: authError } = await supabase.auth.updateUser({
-    password: newPassword,
-    email,
-  })
+  const { error: authError } = await supabase.auth.updateUser(
+    emailChanged
+      ? { password: newPassword, email }
+      : { password: newPassword },
+  )
   if (authError) {
     console.error("[firstSetupAction] updateUser error:", authError)
     return { error: frenchAuthError(authError) }
@@ -346,7 +349,11 @@ export async function firstSetupAction(formData: FormData): Promise<{ error?: st
     return { error: "Informations mises à jour mais le profil n'a pas pu être sauvegardé." }
   }
 
-  return { success: "Compte configuré. Un email de vérification a été envoyé à votre nouvelle adresse." }
+  return {
+    success: emailChanged
+      ? "Compte configuré. Un email de vérification a été envoyé à votre nouvelle adresse."
+      : "Compte configuré. Vous pouvez maintenant utiliser la plateforme.",
+  }
 }
 
 export async function signOutAction() {
