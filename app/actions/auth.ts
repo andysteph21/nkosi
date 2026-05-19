@@ -5,6 +5,7 @@ import { isAuthApiError } from "@supabase/supabase-js"
 import { encodedRedirect } from "@/lib/auth-redirect"
 import { frenchAuthError } from "@/lib/auth-errors"
 import { createClient } from "@/lib/supabase/server"
+import { getSiteOrigin } from "@/lib/site-url"
 import type { UserRole } from "@/lib/types"
 
 export async function resendConfirmationAction(formData: FormData) {
@@ -106,11 +107,12 @@ export async function signUpAction(formData: FormData) {
     fail("Type de compte invalide.")
   }
 
+  const origin = await getSiteOrigin()
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback?redirect_to=${encodeURIComponent(redirectTo)}`,
+      emailRedirectTo: `${origin}/auth/callback?redirect_to=${encodeURIComponent(redirectTo)}`,
       data: {
         first_name: firstName,
         last_name: lastName,
@@ -204,8 +206,9 @@ export async function forgotPasswordAction(formData: FormData) {
     encodedRedirect("error", "/forgot-password", "Veuillez saisir votre email.")
   }
 
+  const origin = await getSiteOrigin()
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback?redirect_to=/reset-password`,
+    redirectTo: `${origin}/auth/callback?redirect_to=/reset-password`,
   })
 
   if (error) {
