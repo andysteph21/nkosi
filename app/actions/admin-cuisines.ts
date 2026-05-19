@@ -1,21 +1,31 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { requireAdmin } from "@/lib/auth-guards"
 import { revalidatePath } from "next/cache"
 
 export async function createCuisineAction(name: string) {
+  const guard = await requireAdmin()
+  if (guard) return guard
+
   const supabase = await createClient()
   await supabase.from("cuisine").insert({ name })
   revalidatePath("/admin")
 }
 
 export async function renameCuisineAction(id: number, name: string) {
+  const guard = await requireAdmin()
+  if (guard) return guard
+
   const supabase = await createClient()
   await supabase.from("cuisine").update({ name }).eq("id", id)
   revalidatePath("/admin")
 }
 
 export async function deleteCuisineAction(id: number) {
+  const guard = await requireAdmin()
+  if (guard) return guard
+
   const supabase = await createClient()
   const { data: links } = await supabase
     .from("restaurant_cuisine")
@@ -49,9 +59,9 @@ export async function deleteCuisineAction(id: number) {
           await supabase.from("notification").insert({
             profile_id: restaurant.profile_id,
             type: "cuisine_removed",
-            title: "Cuisine supprimee",
+            title: "Cuisine supprimée",
             message:
-              "One of your cuisines was removed by an admin. Please update your restaurant profile to remain visible in searches.",
+              "Une de vos cuisines a été supprimée par un administrateur. Mettez à jour votre restaurant pour rester visible dans les recherches.",
           })
         }
       }

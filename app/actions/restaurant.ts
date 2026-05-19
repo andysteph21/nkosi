@@ -11,11 +11,11 @@ export async function createRestaurantAction(formData: FormData) {
   } = await supabase.auth.getUser()
   if (!user) redirect("/create-restaurant?error=Session%20invalide.")
 
-  const { data: profile } = await supabase.from("profile").select("id").eq("user_id", user.id).single()
+  const { data: profile } = await supabase.from("profile").select("id").eq("user_id", user!.id).single()
   if (!profile) redirect("/create-restaurant?error=Profil%20introuvable.")
 
   const payload = {
-    profile_id: profile.id,
+    profile_id: profile!.id,
     name: formData.get("name")?.toString() ?? "",
     description: (formData.get("description")?.toString() ?? "").slice(0, 200),
     city: formData.get("city")?.toString() ?? "",
@@ -24,21 +24,24 @@ export async function createRestaurantAction(formData: FormData) {
   }
 
   const { data, error } = await supabase.from("restaurant").insert(payload).select("id").single()
-  if (error) redirect("/create-restaurant?error=Impossible%20de%20creer%20le%20restaurant.")
+  if (error) {
+    console.error("[createRestaurantAction] insert error:", error)
+    redirect("/create-restaurant?error=" + encodeURIComponent("Impossible de créer le restaurant."))
+  }
 
   const mainCuisineId = formData.get("main_cuisine_id")?.toString()
   const subCuisineIds = formData.getAll("sub_cuisine_ids").map((v) => Number(v)).filter(Boolean)
 
   if (mainCuisineId) {
     const cuisineRows = [
-      { restaurant_id: data.id, cuisine_id: Number(mainCuisineId), is_main: true },
-      ...subCuisineIds.map((cid) => ({ restaurant_id: data.id, cuisine_id: cid, is_main: false })),
+      { restaurant_id: data!.id, cuisine_id: Number(mainCuisineId), is_main: true },
+      ...subCuisineIds.map((cid) => ({ restaurant_id: data!.id, cuisine_id: cid, is_main: false })),
     ]
     await supabase.from("restaurant_cuisine").insert(cuisineRows)
   }
 
   revalidatePath("/my-restaurant")
-  redirect(`/my-restaurant?success=Restaurant%20cree&id=${data.id}`)
+  redirect(`/my-restaurant?success=${encodeURIComponent("Restaurant créé.")}&id=${data!.id}`)
 }
 
 export async function toggleRestaurantVisibilityAction(restaurantId: number, isVisible: boolean) {
@@ -64,7 +67,7 @@ export async function requestVisibilityAction(restaurantId: number) {
     restaurant_id: restaurantId,
     status: "pending",
   })
-  if (error) return { error: "Demande deja en cours ou impossible a creer." }
+  if (error) return { error: "Demande déjà en cours ou impossible à créer." }
   revalidatePath("/my-restaurant")
   return { success: true }
 }

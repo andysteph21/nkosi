@@ -8,10 +8,10 @@ export default function ContactPage() {
       <main className="flex-1 max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-4">Contact</h1>
         <p className="text-muted-foreground mb-6">
-          Pour toute question, ecrivez-nous a contact@nkosi.app.
+          Pour toute question, écrivez-nous à <a className="underline" href="mailto:contact@nkosi.app">contact@nkosi.app</a>.
         </p>
         <p className="text-sm text-muted-foreground">
-          Nous repondons en general sous 24 a 48 heures.
+          Nous répondons en général sous 24 à 48 heures.
         </p>
       </main>
       <Footer />

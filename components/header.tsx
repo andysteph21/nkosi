@@ -19,7 +19,7 @@ import { createClient } from "@/lib/supabase/client"
 export function Header() {
   const { profile } = useAuth()
   const [unreadCount, setUnreadCount] = useState(0)
-  const fullName = profile ? `${profile.first_name} ${profile.last_name}` : "Invite"
+  const fullName = profile ? `${profile.first_name} ${profile.last_name}` : "Invité"
   const canAccessAdmin = profile?.role === "admin" || profile?.role === "super_admin"
 
   useEffect(() => {
@@ -107,7 +107,7 @@ export function Header() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <form action={signOutAction} className="w-full">
-                    <button className="w-full text-left text-destructive">Deconnexion</button>
+                    <button className="w-full text-left text-destructive">Déconnexion</button>
                   </form>
                 </DropdownMenuItem>
               </DropdownMenuContent>

@@ -2,9 +2,13 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireSuperAdmin } from "@/lib/auth-guards"
 import { revalidatePath } from "next/cache"
 
 export async function inviteAdminAction(formData: FormData) {
+  const guard = await requireSuperAdmin()
+  if (guard) return guard
+
   const supabase = await createClient()
   const email = formData.get("email")?.toString().trim() ?? ""
   const firstName = formData.get("firstName")?.toString().trim() ?? ""
@@ -12,7 +16,7 @@ export async function inviteAdminAction(formData: FormData) {
   if (!email || !firstName || !lastName) return { error: "Tous les champs sont requis." }
 
   const { data: exists } = await supabase.from("profile").select("id").eq("email", email).maybeSingle()
-  if (exists) return { error: "Cet email existe deja." }
+  if (exists) return { error: "Cet email existe déjà." }
 
   const adminClient = createAdminClient()
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
@@ -21,7 +25,6 @@ export async function inviteAdminAction(formData: FormData) {
     return { error: "Configuration manquante (BASE_URL)." }
   }
   const redirectTo = `${baseUrl}/auth/callback?redirect_to=/admin-setup`
-  console.log("[inviteAdminAction] redirectTo:", redirectTo)
   const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email, {
     redirectTo,
     data: { first_name: firstName, last_name: lastName },
@@ -43,13 +46,16 @@ export async function inviteAdminAction(formData: FormData) {
 
   if (profileError) {
     console.error("[inviteAdminAction] profile insert error:", profileError)
-    return { error: "Invitation envoyee mais creation du profil admin echouee." }
+    return { error: "Invitation envoyée mais création du profil administrateur échouée." }
   }
   revalidatePath("/admin")
   return { success: true }
 }
 
 export async function toggleAdminActiveAction(userId: string, isActive: boolean) {
+  const guard = await requireSuperAdmin()
+  if (guard) return guard
+
   const supabase = await createClient()
   await supabase.from("profile").update({ is_active: isActive }).eq("user_id", userId)
   if (!isActive) {
@@ -60,13 +66,16 @@ export async function toggleAdminActiveAction(userId: string, isActive: boolean)
 }
 
 export async function resendAdminInviteAction(userId: string) {
+  const guard = await requireSuperAdmin()
+  if (guard) return guard
+
   const supabase = await createClient()
   const { data: adminProfile } = await supabase
     .from("profile")
     .select("email,invited_at,first_name,last_name")
     .eq("user_id", userId)
     .single()
-  if (!adminProfile?.email) return { error: "Admin introuvable." }
+  if (!adminProfile?.email) return { error: "Administrateur introuvable." }
 
   const lastInvite = adminProfile.invited_at ? new Date(adminProfile.invited_at).getTime() : 0
   if (Date.now() - lastInvite < 60_000) {
@@ -80,7 +89,6 @@ export async function resendAdminInviteAction(userId: string) {
     return { error: "Configuration manquante (BASE_URL)." }
   }
   const redirectTo = `${baseUrl}/auth/callback?redirect_to=/admin-setup`
-  console.log("[resendAdminInviteAction] redirectTo:", redirectTo)
   const { error } = await adminClient.auth.admin.inviteUserByEmail(adminProfile.email, {
     redirectTo,
     data: { first_name: adminProfile.first_name, last_name: adminProfile.last_name },

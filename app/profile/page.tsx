@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation"
 import { changePasswordAction, deleteAccountAction, updateProfileNamesAction } from "@/app/actions/auth"
 import { createClient } from "@/lib/supabase/server"
 import { Header } from "@/components/header"
@@ -15,16 +16,35 @@ export default async function ProfilePage({
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = user
-    ? await supabase.from("profile").select("first_name,last_name,email").eq("user_id", user.id).single()
-    : { data: null }
+
+  // Profile page requires an authenticated visitor. Without this check the
+  // form would render with empty defaults and crash silently on submit.
+  if (!user) redirect("/sign-in")
+
+  const { data: profile } = await supabase
+    .from("profile")
+    .select("first_name,last_name,email")
+    .eq("user_id", user.id)
+    .maybeSingle()
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 max-w-2xl mx-auto px-4 py-8 space-y-6">
-        {params.error ? <p className="text-sm text-destructive">{params.error}</p> : null}
-        {params.success ? <p className="text-sm text-green-600">{params.success}</p> : null}
+        {params.error ? (
+          <div
+            role="alert"
+            aria-live="polite"
+            className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
+            {params.error}
+          </div>
+        ) : null}
+        {params.success ? (
+          <p role="status" aria-live="polite" className="text-sm text-green-600">
+            {params.success}
+          </p>
+        ) : null}
 
         <Card>
           <CardHeader>
@@ -34,20 +54,28 @@ export default async function ProfilePage({
             <form action={updateProfileNamesAction} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-sm font-medium">Prenom</label>
+                  <label htmlFor="profile-firstName" className="text-sm font-medium">
+                    Prénom
+                  </label>
                   <Input
+                    id="profile-firstName"
                     name="firstName"
                     required
                     autoComplete="given-name"
+                    autoCapitalize="words"
                     defaultValue={profile?.first_name ?? ""}
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Nom</label>
+                  <label htmlFor="profile-lastName" className="text-sm font-medium">
+                    Nom
+                  </label>
                   <Input
+                    id="profile-lastName"
                     name="lastName"
                     required
                     autoComplete="family-name"
+                    autoCapitalize="words"
                     defaultValue={profile?.last_name ?? ""}
                   />
                 </div>
@@ -66,10 +94,54 @@ export default async function ProfilePage({
           </CardHeader>
           <CardContent>
             <form action={changePasswordAction} className="space-y-3">
-              <Input type="password" name="currentPassword" placeholder="Mot de passe actuel" required autoComplete="current-password" />
-              <Input type="password" name="newPassword" placeholder="Nouveau mot de passe" required minLength={8} autoComplete="new-password" />
-              <Input type="password" name="confirmPassword" placeholder="Confirmer le mot de passe" required minLength={8} autoComplete="new-password" />
-              <Button type="submit">Mettre a jour</Button>
+              <div>
+                <label htmlFor="profile-currentPassword" className="text-sm font-medium">
+                  Mot de passe actuel
+                </label>
+                <Input
+                  id="profile-currentPassword"
+                  type="password"
+                  name="currentPassword"
+                  required
+                  autoComplete="current-password"
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                />
+              </div>
+              <div>
+                <label htmlFor="profile-newPassword" className="text-sm font-medium">
+                  Nouveau mot de passe
+                </label>
+                <Input
+                  id="profile-newPassword"
+                  type="password"
+                  name="newPassword"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                />
+              </div>
+              <div>
+                <label htmlFor="profile-confirmPassword" className="text-sm font-medium">
+                  Confirmer le mot de passe
+                </label>
+                <Input
+                  id="profile-confirmPassword"
+                  type="password"
+                  name="confirmPassword"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                />
+              </div>
+              <Button type="submit">Mettre à jour</Button>
             </form>
           </CardContent>
         </Card>

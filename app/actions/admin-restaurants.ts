@@ -1,9 +1,13 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { requireAdmin } from "@/lib/auth-guards"
 import { revalidatePath } from "next/cache"
 
 export async function setRestaurantRestrictionAction(id: number, restricted: boolean) {
+  const guard = await requireAdmin()
+  if (guard) return guard
+
   const supabase = await createClient()
   await supabase
     .from("restaurant")
@@ -17,6 +21,9 @@ export async function answerVisibilityRequestAction(
   decision: "approved" | "refused",
   refusalMessage?: string
 ) {
+  const guard = await requireAdmin()
+  if (guard) return guard
+
   const supabase = await createClient()
   const { data } = await supabase.from("visibility_request").select("restaurant_id").eq("id", id).single()
   if (!data) return
@@ -38,8 +45,8 @@ export async function answerVisibilityRequestAction(
       await supabase.from("notification").insert({
         profile_id: restaurant.profile_id,
         type: "visibility_refused",
-        title: "Demande refusee",
-        message: (refusalMessage ?? "Votre demande a ete refusee.").slice(0, 500),
+        title: "Demande refusée",
+        message: (refusalMessage ?? "Votre demande a été refusée.").slice(0, 500),
       })
     }
   }

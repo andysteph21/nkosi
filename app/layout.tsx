@@ -57,7 +57,7 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="en">
+    <html lang="fr">
       <body className={`font-sans antialiased`}>
         <OfflineBanner />
         <AuthProvider initialProfile={profile}>
