@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import type { EmailOtpType } from "@supabase/supabase-js"
 import { supabaseFetch } from "@/lib/supabase/fetch"
+import { getSiteOrigin } from "@/lib/site-url"
 
 const TAG = "[auth/callback]"
 
@@ -55,7 +56,13 @@ export async function GET(request: Request) {
     }),
   )
 
-  const response = NextResponse.redirect(new URL(redirectTo, requestUrl.origin))
+  // Derive the public origin from the X-Forwarded-* headers set by Caddy
+  // rather than from request.url. In Next.js standalone mode, request.url is
+  // built from the container's bind address (0.0.0.0:3000), so using its
+  // origin for the Location header would send the browser to a non-routable
+  // address and produce ERR_ADDRESS_INVALID.
+  const publicOrigin = await getSiteOrigin()
+  const response = NextResponse.redirect(new URL(redirectTo, publicOrigin))
 
   // Count how many cookies the SDK asks us to set during the exchange.
   // Zero means the SDK considered the exchange a failure even if no error
@@ -239,6 +246,7 @@ export async function GET(request: Request) {
     "redirecting to",
     JSON.stringify({
       to: redirectTo,
+      publicOrigin,
       cookiesAttached: response.cookies.getAll().map((c) => c.name),
     }),
   )
