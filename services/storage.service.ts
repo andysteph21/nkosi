@@ -22,18 +22,21 @@ export interface UploadResult {
  * Uploads a file to Storage.
  *
  * The upload is routed through a Server Action (`uploadFileAction`) which
- * performs it with the service-role key. A direct browser upload cannot be
- * used: the project's storage-api rejects the ES256 user JWTs that Auth
- * issues (it has not picked up the asymmetric signing key), so a browser
- * upload is treated as anonymous and blocked by the Storage RLS policies.
- * The Server Action re-checks the same path-ownership rule the RLS policy
- * enforced, so security is unchanged.
+ * performs it with the service-role key — the project's storage-api rejects
+ * the ES256 user JWTs, so a direct browser upload is blocked by RLS.
  */
 export async function uploadToBucket(
   bucket: Bucket,
   path: string,
   file: File
 ): Promise<UploadResult> {
+  // DIAGNOSTIC (temporary): log the file size leaving the browser so we can
+  // compare it with the size the Server Action receives.
+  console.log(
+    "[uploadToBucket] sending",
+    JSON.stringify({ path, fileType: file.type, fileSizeBytes: file.size }),
+  )
+
   const fd = new FormData()
   fd.set("bucket", bucket)
   fd.set("path", path)
