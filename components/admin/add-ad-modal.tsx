@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createAd, updateAd } from '@/services/ad.service'
 import type { Ad } from '@/services/ad.service'
 import { Button } from '@/components/ui/button'
+import { SubmitButton } from '@/components/ui/submit-button'
 import { Input } from '@/components/ui/input'
 import {
   Dialog,
@@ -106,7 +107,11 @@ export function AddAdModal({ open, onOpenChange, onSaved, ad }: AddAdModalProps)
       onSaved()
     } catch (error: any) {
       console.error('Error saving ad:', error)
-      setUploadError(error?.message ?? (isEdit ? 'Erreur lors de la modification de la publicité' : 'Erreur lors de la création de la publicité'))
+      setUploadError(
+        isEdit
+          ? "La publicité n'a pas pu être modifiée. Veuillez réessayer."
+          : "La publicité n'a pas pu être créée. Veuillez réessayer."
+      )
     } finally {
       setLoading(false)
     }
@@ -190,7 +195,7 @@ export function AddAdModal({ open, onOpenChange, onSaved, ad }: AddAdModalProps)
               />
               {imagePreview ? (
                 <div className="relative aspect-video mb-2">
-                  <img src={resolveMediaUrl(imagePreview)} alt="Preview" className="w-full h-full object-cover rounded" />
+                  <img src={resolveMediaUrl(imagePreview)} alt="Aperçu de l'image" className="w-full h-full object-cover rounded" />
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); clearImage() }}
@@ -203,7 +208,7 @@ export function AddAdModal({ open, onOpenChange, onSaved, ad }: AddAdModalProps)
               ) : (
                 <div className="py-4">
                   <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Cliquez pour uploader ou glisser-déposer</p>
+                  <p className="text-sm text-muted-foreground">Cliquez pour choisir une image ou glissez-la ici</p>
                 </div>
               )}
             </div>
@@ -257,11 +262,12 @@ export function AddAdModal({ open, onOpenChange, onSaved, ad }: AddAdModalProps)
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Annuler
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading
-                ? (pendingFile ? 'Envoi...' : (isEdit ? 'Modification...' : 'Création...'))
-                : isEdit ? 'Enregistrer les modifications' : 'Créer la publicité'}
-            </Button>
+            <SubmitButton
+              pending={loading}
+              pendingText={pendingFile ? 'Envoi en cours…' : (isEdit ? 'Modification en cours…' : 'Création en cours…')}
+            >
+              {isEdit ? 'Enregistrer les modifications' : 'Créer la publicité'}
+            </SubmitButton>
           </div>
         </form>
       </DialogContent>

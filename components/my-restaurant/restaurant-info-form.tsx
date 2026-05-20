@@ -5,6 +5,7 @@ import { getMyRestaurantInfo, updateRestaurantData, getAvailableCuisines, update
 import type { Restaurant } from '@/services/restaurant.service'
 import { CuisineSelector } from '@/components/cuisine-selector'
 import { Button } from '@/components/ui/button'
+import { SubmitButton } from '@/components/ui/submit-button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { AlertCircle, CheckCircle2, Upload } from 'lucide-react'
@@ -114,7 +115,7 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
       }
     } catch (error) {
       console.error('Error fetching restaurant:', error)
-      setMessage({ type: 'error', text: 'Erreur lors du chargement du restaurant' })
+      setMessage({ type: 'error', text: "Impossible de charger les informations du restaurant. Veuillez réessayer." })
     } finally {
       setLoading(false)
     }
@@ -207,7 +208,7 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
       setCoverPreview(null)
     } catch (error: any) {
       console.error('Error updating restaurant:', error)
-      setMessage({ type: 'error', text: error?.message ?? 'Erreur lors de la mise à jour' })
+      setMessage({ type: 'error', text: "L'enregistrement a échoué. Veuillez vérifier vos informations et réessayer." })
     } finally {
       setSaving(false)
     }
@@ -426,13 +427,14 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
 
             {/* Submit and Cancel Buttons */}
             <div className="flex gap-2 pt-6 border-t">
-              <Button 
-                type="submit" 
-                disabled={saving || !hasChanges}
+              <SubmitButton
+                pending={saving}
+                pendingText="Enregistrement en cours…"
+                disabled={!hasChanges}
                 className={!hasChanges ? 'opacity-50 cursor-not-allowed' : ''}
               >
-                {saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
-              </Button>
+                Enregistrer les modifications
+              </SubmitButton>
               <Button 
                 type="button" 
                 variant="outline" 
@@ -475,7 +477,7 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Discarter les modifications ?</AlertDialogTitle>
+            <AlertDialogTitle>Abandonner les modifications ?</AlertDialogTitle>
             <AlertDialogDescription>
               Vous avez des modifications non enregistrées. Êtes-vous sûr de vouloir les abandonner ?
             </AlertDialogDescription>
@@ -483,7 +485,7 @@ export function RestaurantInfoForm({ restaurantId }: RestaurantInfoFormProps) {
           <div className="flex gap-2 justify-end">
             <AlertDialogCancel>Continuer l'édition</AlertDialogCancel>
             <AlertDialogAction onClick={confirmCancel} className="bg-destructive text-destructive-foreground">
-              Discarter
+              Abandonner
             </AlertDialogAction>
           </div>
         </AlertDialogContent>

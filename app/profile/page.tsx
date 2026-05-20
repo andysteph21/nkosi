@@ -5,7 +5,7 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { SubmitButton } from "@/components/ui/submit-button"
 
 export default async function ProfilePage({
   searchParams,
@@ -83,7 +83,7 @@ export default async function ProfilePage({
               {profile?.email ? (
                 <p className="text-sm text-muted-foreground">{profile.email}</p>
               ) : null}
-              <Button type="submit">Enregistrer</Button>
+              <SubmitButton pendingText="Enregistrement en cours…">Enregistrer</SubmitButton>
             </form>
           </CardContent>
         </Card>
@@ -141,7 +141,7 @@ export default async function ProfilePage({
                   autoCorrect="off"
                 />
               </div>
-              <Button type="submit">Mettre à jour</Button>
+              <SubmitButton pendingText="Mise à jour en cours…">Mettre à jour</SubmitButton>
             </form>
           </CardContent>
         </Card>
@@ -152,9 +152,9 @@ export default async function ProfilePage({
           </CardHeader>
           <CardContent>
             <form action={deleteAccountAction}>
-              <Button type="submit" variant="destructive">
+              <SubmitButton variant="destructive" pendingText="Suppression en cours…">
                 Supprimer mon compte
-              </Button>
+              </SubmitButton>
             </form>
           </CardContent>
         </Card>

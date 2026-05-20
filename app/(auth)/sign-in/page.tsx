@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { LoginForm } from "@/components/auth/login-form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { SubmitButton } from "@/components/ui/submit-button"
 import { resendConfirmationAction } from "@/app/actions/auth"
 import { MailCheck } from "lucide-react"
 
@@ -34,9 +34,9 @@ export default async function SignInPage({
             </p>
             <form action={resendConfirmationAction}>
               <input type="hidden" name="email" value={email} />
-              <Button type="submit" className="w-full">
+              <SubmitButton className="w-full" pendingText="Envoi en cours…">
                 Renvoyer l&apos;email de confirmation
-              </Button>
+              </SubmitButton>
             </form>
             <Link
               href="/sign-in"

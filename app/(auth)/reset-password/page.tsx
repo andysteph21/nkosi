@@ -1,7 +1,7 @@
 import { resetPasswordAction } from "@/app/actions/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { SubmitButton } from "@/components/ui/submit-button"
 
 export default async function ResetPasswordPage({
   searchParams,
@@ -66,9 +66,9 @@ export default async function ResetPasswordPage({
                 autoCorrect="off"
               />
             </div>
-            <Button type="submit" className="w-full">
+            <SubmitButton className="w-full" pendingText="Enregistrement…">
               Mettre à jour
-            </Button>
+            </SubmitButton>
           </form>
         </CardContent>
       </Card>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { Dish, Category } from '@/services/restaurant.service'
 import { Button } from '@/components/ui/button'
+import { SubmitButton } from '@/components/ui/submit-button'
 import { Input } from '@/components/ui/input'
 import {
   Dialog,
@@ -143,7 +144,7 @@ export function EditDishModal({
 
       await onSaved(updates)
     } catch (error: any) {
-      setSubmitError(error?.message ?? 'Erreur lors de la mise à jour')
+      setSubmitError("La mise à jour du plat a échoué. Veuillez vérifier les informations et réessayer.")
     } finally {
       setLoading(false)
     }
@@ -363,9 +364,12 @@ export function EditDishModal({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Annuler
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? (newImageFile || newVideoFile ? 'Envoi en cours…' : 'Mise à jour…') : 'Enregistrer les modifications'}
-            </Button>
+            <SubmitButton
+              pending={loading}
+              pendingText={newImageFile || newVideoFile ? 'Envoi en cours…' : 'Mise à jour en cours…'}
+            >
+              Enregistrer les modifications
+            </SubmitButton>
           </div>
         </form>
       </DialogContent>

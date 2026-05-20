@@ -1,6 +1,6 @@
 import { signUpAction } from "@/app/actions/auth"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { SubmitButton } from "@/components/ui/submit-button"
 
 /**
  * Accessibility / autofill notes
@@ -113,9 +113,9 @@ export function SignUpForm({
           minLength={8}
         />
       </div>
-      <Button className="w-full" type="submit">
+      <SubmitButton className="w-full" pendingText="Création du compte…">
         Créer mon compte
-      </Button>
+      </SubmitButton>
     </form>
   )
 }

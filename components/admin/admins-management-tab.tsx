@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { inviteAdminAction, resendAdminInviteAction, toggleAdminActiveAction } from "@/app/actions/admin-users"
 import { Button } from "@/components/ui/button"
+import { SubmitButton } from "@/components/ui/submit-button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import type { Profile } from "@/lib/types"
@@ -54,12 +55,12 @@ export function AdminsManagementTab() {
         </CardHeader>
         <CardContent>
           <form action={onInvite} className="grid md:grid-cols-4 gap-3">
-            <Input name="firstName" placeholder="Prenom" required />
+            <Input name="firstName" placeholder="Prénom" required />
             <Input name="lastName" placeholder="Nom" required />
-            <Input name="email" placeholder="Email" type="email" required />
-            <Button type="submit" disabled={pending}>
+            <Input name="email" placeholder="Adresse e-mail" type="email" required />
+            <SubmitButton pending={pending} pendingText="Invitation en cours…">
               Inviter
-            </Button>
+            </SubmitButton>
           </form>
           {error ? <p className="text-sm text-destructive mt-3">{error}</p> : null}
         </CardContent>
@@ -85,11 +86,11 @@ export function AdminsManagementTab() {
                   <tr key={admin.id} className="border-b">
                     <td className="py-2">{admin.first_name} {admin.last_name}</td>
                     <td className="py-2">{admin.email}</td>
-                    <td className="py-2">{admin.confirmed_at ? "Confirme" : "Invite"}</td>
+                    <td className="py-2">{admin.confirmed_at ? "Confirmé" : "Invité"}</td>
                     <td className="py-2">
                       <div className="flex gap-2">
                         <Button size="sm" variant={admin.is_active ? "destructive" : "outline"} onClick={() => onToggle(admin.user_id, admin.is_active)}>
-                          {admin.is_active ? "Desactiver" : "Activer"}
+                          {admin.is_active ? "Désactiver" : "Activer"}
                         </Button>
                         {!admin.confirmed_at ? (
                           <Button

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { firstSetupAction } from "@/app/actions/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { SubmitButton } from "@/components/ui/submit-button"
 import type { Profile } from "@/lib/types"
 
 export function FirstSetupForm({ profile }: { profile: Profile }) {
@@ -140,9 +140,9 @@ export function FirstSetupForm({ profile }: { profile: Profile }) {
                 autoCorrect="off"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={pending} aria-busy={pending}>
-              {pending ? "Enregistrement…" : "Enregistrer et continuer"}
-            </Button>
+            <SubmitButton className="w-full" pending={pending} pendingText="Enregistrement…">
+              Enregistrer et continuer
+            </SubmitButton>
           </form>
         </CardContent>
       </Card>

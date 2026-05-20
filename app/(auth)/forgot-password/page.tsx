@@ -1,8 +1,8 @@
 import Link from "next/link"
 import { forgotPasswordAction } from "@/app/actions/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { SubmitButton } from "@/components/ui/submit-button"
 
 export default async function ForgotPasswordPage({
   searchParams,
@@ -50,9 +50,9 @@ export default async function ForgotPasswordPage({
                 autoCorrect="off"
               />
             </div>
-            <Button type="submit" className="w-full">
+            <SubmitButton className="w-full" pendingText="Envoi en cours…">
               Envoyer le lien
-            </Button>
+            </SubmitButton>
           </form>
           <Link href="/sign-in" className="text-sm underline text-center block">
             Retour à la connexion

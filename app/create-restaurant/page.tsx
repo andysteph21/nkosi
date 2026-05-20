@@ -5,7 +5,7 @@ import { Footer } from "@/components/footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Button } from "@/components/ui/button"
+import { SubmitButton } from "@/components/ui/submit-button"
 import { CuisineSelector } from "@/components/cuisine-selector"
 import { getAvailableCuisines } from "@/services/restaurant.service"
 
@@ -50,7 +50,7 @@ export default async function CreateRestaurantPage({
                 </div>
                 <Textarea name="address" placeholder="Adresse détaillée" required />
                 <CuisineSelector cuisines={cuisines} />
-                <Button type="submit">Créer</Button>
+                <SubmitButton pendingText="Création en cours…">Créer</SubmitButton>
               </form>
               <Link href="/my-restaurant" className="text-sm underline">
                 Retour à mon restaurant

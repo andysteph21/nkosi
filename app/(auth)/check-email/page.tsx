@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Mail } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { SubmitButton } from "@/components/ui/submit-button"
 import { resendConfirmationAction } from "@/app/actions/auth"
 
 export default async function CheckEmailPage({
@@ -40,9 +40,9 @@ export default async function CheckEmailPage({
           {email ? (
             <form action={resendConfirmationAction}>
               <input type="hidden" name="email" value={email} />
-              <Button variant="outline" type="submit" className="w-full">
+              <SubmitButton variant="outline" className="w-full" pendingText="Envoi en cours…">
                 Renvoyer l&apos;email de confirmation
-              </Button>
+              </SubmitButton>
             </form>
           ) : null}
           <p className="text-sm text-muted-foreground">

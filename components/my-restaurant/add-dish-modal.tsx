@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { Dish, Category } from '@/services/restaurant.service'
 import { Button } from '@/components/ui/button'
+import { SubmitButton } from '@/components/ui/submit-button'
 import { Input } from '@/components/ui/input'
 import {
   Dialog,
@@ -138,7 +139,7 @@ export function AddDishModal({
       })
       reset()
     } catch (error: any) {
-      setSubmitError(error?.message ?? "Erreur lors de l'ajout du plat")
+      setSubmitError("L'ajout du plat a échoué. Veuillez vérifier les informations et réessayer.")
     } finally {
       setLoading(false)
     }
@@ -352,9 +353,9 @@ export function AddDishModal({
             <Button type="button" variant="outline" onClick={() => { reset(); onOpenChange(false) }}>
               Annuler
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Envoi en cours…' : 'Ajouter le plat'}
-            </Button>
+            <SubmitButton pending={loading} pendingText="Envoi en cours…">
+              Ajouter le plat
+            </SubmitButton>
           </div>
         </form>
       </DialogContent>

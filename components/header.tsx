@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, ChevronDown, LogIn, User } from "lucide-react"
+import { Bell, ChevronDown, LogIn, Loader2, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -14,7 +14,31 @@ import Link from "next/link"
 import { useAuth } from "@/components/providers/auth-provider"
 import { signOutAction } from "@/app/actions/auth"
 import { useEffect, useState } from "react"
+import { useFormStatus } from "react-dom"
 import { createClient } from "@/lib/supabase/client"
+
+// Bouton de déconnexion : affiche un indicateur de chargement pendant
+// l'envoi du formulaire pour éviter les clics multiples.
+function SignOutButton() {
+  const { pending } = useFormStatus()
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      aria-busy={pending}
+      className="w-full text-left text-destructive flex items-center gap-2 disabled:opacity-60"
+    >
+      {pending ? (
+        <>
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          Déconnexion en cours…
+        </>
+      ) : (
+        "Déconnexion"
+      )}
+    </button>
+  )
+}
 
 export function Header() {
   const { profile } = useAuth()
@@ -107,7 +131,7 @@ export function Header() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <form action={signOutAction} className="w-full">
-                    <button className="w-full text-left text-destructive">Déconnexion</button>
+                    <SignOutButton />
                   </form>
                 </DropdownMenuItem>
               </DropdownMenuContent>

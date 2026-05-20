@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { signInAction } from "@/app/actions/auth"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { SubmitButton } from "@/components/ui/submit-button"
 
 export function LoginForm({ defaultEmail }: { defaultEmail?: string } = {}) {
   return (
@@ -38,9 +38,9 @@ export function LoginForm({ defaultEmail }: { defaultEmail?: string } = {}) {
           autoCorrect="off"
         />
       </div>
-      <Button type="submit" className="w-full">
+      <SubmitButton className="w-full" pendingText="Connexion…">
         Se connecter
-      </Button>
+      </SubmitButton>
       <Link className="text-sm text-muted-foreground hover:underline block text-center" href="/forgot-password">
         Mot de passe oublié ?
       </Link>
