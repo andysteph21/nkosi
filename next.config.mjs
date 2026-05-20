@@ -10,6 +10,15 @@ const SUPABASE_HOSTNAME = new URL(SUPABASE_URL).hostname
 
 const nextConfig = {
   output: "standalone",
+  experimental: {
+    // Plate/restaurant media is uploaded through the `uploadFileAction`
+    // Server Action (service-role workaround for the storage-api ES256 JWT
+    // issue). Server Actions cap request bodies at 1 MB by default; raise it
+    // to cover the 20 MB Storage bucket limit plus multipart overhead.
+    serverActions: {
+      bodySizeLimit: "25mb",
+    },
+  },
   typescript: {
     // TODO (phase 5 hardening): flip to false and resolve outstanding errors.
     ignoreBuildErrors: true,
